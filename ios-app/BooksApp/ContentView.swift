@@ -1,24 +1,46 @@
 import SwiftUI
 import WebKit
 
+extension Color {
+    init(hex: String) {
+        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: cleaned).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255.0
+        let g = Double((int >> 8) & 0xFF) / 255.0
+        let b = Double(int & 0xFF) / 255.0
+        self.init(red: r, green: g, blue: b)
+    }
+}
+
 struct ContentView: View {
     @AppStorage("windowsWifiUrl") private var windowsWifiUrl: String = ""
     @State private var showWifiPrompt = false
     @State private var urlDraft = ""
+    @State private var themeBgHex = "#f5f5f7"
+    @State private var isDarkTheme = false
 
     var body: some View {
         ZStack {
-            // Matching native background behind the Dynamic Island & status bar (zero black bars!)
-            Color(UIColor.systemGroupedBackground)
+            // Dynamically matches active theme behind Dynamic Island & clock (pure black in Focus, warm cream in Paper!)
+            Color(hex: themeBgHex)
                 .ignoresSafeArea(.all)
 
             // WebView stays cleanly BELOW the Dynamic Island / status bar, extending to bottom edge
-            BooksWebView(remoteUrl: windowsWifiUrl) {
-                urlDraft = windowsWifiUrl
-                showWifiPrompt = true
-            }
+            BooksWebView(
+                remoteUrl: windowsWifiUrl,
+                onOpenWifiConfig: {
+                    urlDraft = windowsWifiUrl
+                    showWifiPrompt = true
+                },
+                onThemeChange: { hex, dark in
+                    themeBgHex = hex
+                    isDarkTheme = dark
+                }
+            )
             .ignoresSafeArea(.container, edges: .bottom)
         }
+        .preferredColorScheme(isDarkTheme ? .dark : .light)
         .alert("Connect to Windows PC Wi-Fi Sync", isPresented: $showWifiPrompt) {
             TextField("http://192.168.1.42:8765", text: $urlDraft)
                 .textInputAutocapitalization(.never)
@@ -39,15 +61,17 @@ struct ContentView: View {
 struct BooksWebView: UIViewRepresentable {
     let remoteUrl: String
     let onOpenWifiConfig: () -> Void
+    let onThemeChange: (String, Bool) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onOpenWifiConfig: onOpenWifiConfig)
+        Coordinator(onOpenWifiConfig: onOpenWifiConfig, onThemeChange: onThemeChange)
     }
 
     func makeUIView(context: Context) -> WKWebView {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "booksBridge")
         contentController.add(context.coordinator, name: "booksSave")
+        contentController.add(context.coordinator, name: "booksTheme")
 
         let config = WKWebViewConfiguration()
         config.userContentController = contentController
@@ -59,8 +83,8 @@ struct BooksWebView: UIViewRepresentable {
         webView.scrollView.bounces = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.isOpaque = false
-        webView.backgroundColor = UIColor.systemGroupedBackground
-        webView.scrollView.backgroundColor = UIColor.systemGroupedBackground
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
         context.coordinator.webView = webView
         loadTarget(in: webView)
         return webView
@@ -84,10 +108,12 @@ struct BooksWebView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         let onOpenWifiConfig: () -> Void
+        let onThemeChange: (String, Bool) -> Void
         weak var webView: WKWebView?
 
-        init(onOpenWifiConfig: @escaping () -> Void) {
+        init(onOpenWifiConfig: @escaping () -> Void, onThemeChange: @escaping (String, Bool) -> Void) {
             self.onOpenWifiConfig = onOpenWifiConfig
+            self.onThemeChange = onThemeChange
         }
 
         private var stateFileURL: URL {
@@ -125,6 +151,11 @@ struct BooksWebView: UIViewRepresentable {
                 }
             } else if message.name == "booksSave", let json = message.body as? String {
                 saveStateToDisk(json)
+            } else if message.name == "booksTheme", let dict = message.body as? [String: Any],
+                      let bg = dict["bg"] as? String, let dark = dict["dark"] as? Bool {
+                DispatchQueue.main.async {
+                    self.onThemeChange(bg, dark)
+                }
             }
         }
     }

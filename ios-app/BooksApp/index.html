@@ -102,8 +102,10 @@
     }
 
     .reader-prose p {
-      margin-bottom: 1.05em;
-      text-indent: 1.35em;
+      margin-bottom: 0.92em;
+      text-indent: 1.25em;
+      orphans: 2;
+      widows: 2;
     }
     .reader-prose p:first-of-type {
       text-indent: 0;
@@ -111,8 +113,38 @@
     .reader-prose h2 {
       font-weight: 600;
       letter-spacing: -0.02em;
-      margin-bottom: 0.9em;
+      margin-bottom: 0.85em;
       line-height: 1.25;
+      break-after: avoid;
+    }
+    /* True CSS Multi-Column Pagination (fills 100% of screen height like real Apple Books) */
+    #colViewport {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    #colTrack {
+      height: 100%;
+      column-fill: auto;
+      will-change: transform;
+      transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #colTrack.no-anim {
+      transition: none !important;
+    }
+    .chrome-hidden #readerTopBar {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-100%);
+    }
+    .chrome-hidden #readerFooter {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(100%);
+    }
+    #readerTopBar, #readerFooter {
+      transition: opacity 0.22s ease, transform 0.22s ease;
     }
 
     /* Highlight colors */
@@ -341,8 +373,11 @@
 
   <!-- FULLSCREEN READER VIEW -->
   <div id="readerView" class="fixed inset-0 z-40 hidden flex-col reader-theme-paper">
-    <!-- Reader Top Bar -->
-    <header id="readerTopBar" class="ios-safe-top shrink-0 px-3 sm:px-5 py-2 flex items-center justify-between border-b glass z-20 transition-opacity duration-200"
+    <!-- Subtle Immersive Chapter Header (always visible when toolbars auto-hide, like Apple Books) -->
+    <div id="immersiveHeader" class="shrink-0 pt-2 pb-1 px-6 text-center text-[11px] font-medium truncate select-none" style="color: var(--r-muted);"></div>
+
+    <!-- Reader Top Bar (Floating Overlay — tap center of page to toggle) -->
+    <header id="readerTopBar" class="absolute top-0 inset-x-0 px-3 sm:px-5 py-2 flex items-center justify-between border-b glass z-20"
       style="background: var(--r-panel); border-color: var(--r-border);">
       <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
         <button id="closeReaderBtn" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10 transition">
@@ -523,17 +558,18 @@
       </div>
 
       <!-- Reader Stage -->
-      <div id="readerStage" class="flex-1 relative flex items-center justify-center overflow-hidden px-4 sm:px-10 py-4 sm:py-6">
-        <!-- Prev / Next Click Buttons (Paginated mode) -->
-        <button id="prevPageBtn" title="Previous Page (Left Arrow)" class="hidden sm:flex items-center justify-center w-10 h-20 rounded-2xl absolute left-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
+      <div id="readerStage" class="flex-1 relative flex items-center justify-center overflow-hidden px-5 sm:px-12 py-2 sm:py-4">
+        <!-- Prev / Next Click Buttons (Desktop only; tap edges or swipe on iPhone/iPad) -->
+        <button id="prevPageBtn" title="Previous Page (Left Arrow)" class="hidden lg:flex items-center justify-center w-10 h-20 rounded-2xl absolute left-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="chevron-left" class="w-6 h-6"></i>
         </button>
 
-        <!-- Paginated Book Spread Container -->
-        <div id="paginatedContainer" class="w-full h-full max-w-5xl flex items-stretch justify-center gap-8 sm:gap-12 select-text">
-          <div id="pageLeft" class="flex-1 min-w-0 overflow-hidden reader-prose"></div>
-          <div id="pageSpine" class="hidden lg:block w-px self-stretch my-2" style="background: linear-gradient(180deg, transparent, var(--r-spine) 15%, var(--r-spine) 85%, transparent);"></div>
-          <div id="pageRight" class="hidden lg:block flex-1 min-w-0 overflow-hidden reader-prose"></div>
+        <!-- True CSS Multi-Column Paginated Container (100% full-height pages!) -->
+        <div id="paginatedContainer" class="w-full h-full max-w-5xl relative select-text">
+          <div id="pageSpine" class="hidden lg:block pointer-events-none absolute top-2 bottom-2 left-1/2 w-px -translate-x-1/2 z-10" style="background: linear-gradient(180deg, transparent, var(--r-spine) 15%, var(--r-spine) 85%, transparent);"></div>
+          <div id="colViewport">
+            <div id="colTrack" class="reader-prose"></div>
+          </div>
         </div>
 
         <!-- Vertical Scroll Container -->
@@ -541,14 +577,17 @@
           <div id="scrollContent" class="max-w-2xl mx-auto py-4 reader-prose"></div>
         </div>
 
-        <button id="nextPageBtn" title="Next Page (Right Arrow)" class="hidden sm:flex items-center justify-center w-10 h-20 rounded-2xl absolute right-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
+        <button id="nextPageBtn" title="Next Page (Right Arrow)" class="hidden lg:flex items-center justify-center w-10 h-20 rounded-2xl absolute right-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="chevron-right" class="w-6 h-6"></i>
         </button>
       </div>
     </div>
 
-    <!-- Reader Bottom Scrubber Bar -->
-    <footer class="ios-safe-bottom shrink-0 pt-2.5 sm:px-8 border-t glass z-20" style="background: var(--r-panel); border-color: var(--r-border);">
+    <!-- Subtle Immersive Page Number Footer (always visible like Apple Books) -->
+    <div id="immersiveFooter" class="shrink-0 pt-1 px-6 text-center text-[11px] font-medium select-none" style="padding-bottom: max(0.55rem, env(safe-area-inset-bottom)); color: var(--r-muted);"></div>
+
+    <!-- Reader Bottom Scrubber Bar (Floating Overlay — tap center to toggle) -->
+    <footer id="readerFooter" class="ios-safe-bottom absolute bottom-0 inset-x-0 pt-2.5 sm:px-8 border-t glass z-20" style="background: var(--r-panel); border-color: var(--r-border);">
       <div class="max-w-4xl mx-auto flex flex-col gap-1.5">
         <div class="flex items-center gap-3">
           <button id="mobilePrevBtn" class="sm:hidden p-1.5 rounded-lg hover:bg-black/5"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
@@ -1314,6 +1353,7 @@
       // Apply dark mode on shell
       function applyAppDarkMode() {
         document.body.classList.toggle('app-dark', !!state.appDark);
+        if (!currentBookId) syncNativeThemeBar(false);
         const btn = document.getElementById('toggleAppDarkBtn');
         if (btn) {
           btn.innerHTML = `<i data-lucide="${state.appDark ? 'sun' : 'moon'}" class="w-4 h-4"></i>`;
@@ -1752,10 +1792,37 @@
 
       // ===================== READER ENGINE =====================
 
+      let readerChromeVisible = false;
+      let totalColPages = 1;
+      let colPageStride = 0;
+
+      function syncNativeThemeBar(inReader) {
+        if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksTheme)) return;
+        const themeBgMap = {
+          original: { bg: '#ffffff', dark: false },
+          quiet:    { bg: '#1c1c1e', dark: true },
+          paper:    { bg: '#f7f2e7', dark: false },
+          bold:     { bg: '#fafafa', dark: false },
+          calm:     { bg: '#ece4d4', dark: false },
+          focus:    { bg: '#000000', dark: true }
+        };
+        const info = inReader
+          ? (themeBgMap[state.readerSettings.theme] || themeBgMap.paper)
+          : { bg: state.appDark ? '#000000' : '#f5f5f7', dark: !!state.appDark };
+        try { window.webkit.messageHandlers.booksTheme.postMessage(info); } catch (e) {}
+      }
+
+      function setReaderChrome(visible) {
+        readerChromeVisible = !!visible;
+        const rv = document.getElementById('readerView');
+        if (rv) rv.classList.toggle('chrome-hidden', !readerChromeVisible);
+      }
+
       function applyReaderSettings() {
         const rv = document.getElementById('readerView');
         const s = state.readerSettings;
-        rv.className = `fixed inset-0 z-40 flex flex-col reader-theme-${s.theme}`;
+        rv.className = `fixed inset-0 z-40 flex flex-col reader-theme-${s.theme}${readerChromeVisible ? '' : ' chrome-hidden'}`;
+        syncNativeThemeBar(true);
 
         const fontMap = {
           newsreader: '"Newsreader", Georgia, serif',
@@ -1765,8 +1832,9 @@
           mono: '"JetBrains Mono", monospace'
         };
 
-        const targets = [document.getElementById('pageLeft'), document.getElementById('pageRight'), document.getElementById('scrollContent')];
+        const targets = [document.getElementById('colTrack'), document.getElementById('scrollContent')];
         targets.forEach(el => {
+          if (!el) return;
           el.style.fontFamily = fontMap[s.fontFamily] || fontMap.newsreader;
           el.style.fontSize = s.fontSize + 'px';
           el.style.lineHeight = s.lineHeight;
@@ -1810,12 +1878,28 @@
         document.getElementById('nextPageBtn').classList.toggle('hidden', isScroll);
 
         const useSpread = s.spread && window.innerWidth >= 1024;
-        document.getElementById('pageRight').classList.toggle('hidden', !useSpread);
         document.getElementById('pageSpine').classList.toggle('hidden', !useSpread);
       }
 
+      function sanitizeInlineHtml(raw) {
+        // Preserve safe bold/italic formatting from EPUBs while blocking scripts/attrs
+        const tmp = document.createElement('div');
+        tmp.innerHTML = String(raw || '');
+        const walk = (node) => {
+          if (node.nodeType === 3) return escapeHtml(node.textContent);
+          if (node.nodeType !== 1) return '';
+          const tag = node.tagName.toLowerCase();
+          const inner = Array.from(node.childNodes).map(walk).join('');
+          if (tag === 'strong' || tag === 'b') return `<strong>${inner}</strong>`;
+          if (tag === 'em' || tag === 'i') return `<em>${inner}</em>`;
+          if (tag === 'br') return '<br/>';
+          return inner;
+        };
+        return Array.from(tmp.childNodes).map(walk).join('');
+      }
+
       function applyHighlightsToText(text, bookId, chapterIdx) {
-        let html = escapeHtml(text);
+        let html = typeof text === 'object' && text && text.html ? sanitizeInlineHtml(text.html) : escapeHtml(text);
         const hls = state.highlights.filter(h => h.bookId === bookId && h.chapterIdx === chapterIdx);
         hls.forEach(h => {
           const safeTarget = escapeHtml(h.text);
@@ -1826,35 +1910,33 @@
         return html;
       }
 
-      function paginateChapter(book, chapterIdx) {
-        const ch = book.chapters[chapterIdx];
-        if (!ch) return ['<p>Empty chapter.</p>'];
+      function layoutMultiColumnPages(instant = false) {
+        const vp = document.getElementById('colViewport');
+        const track = document.getElementById('colTrack');
+        if (!vp || !track) return;
         const s = state.readerSettings;
-        // Estimate characters per single page cleanly based on viewport & font size
-        const stageH = Math.max(380, window.innerHeight - 170);
         const isSpread = s.spread && window.innerWidth >= 1024;
-        const colW = isSpread ? Math.min(440, (window.innerWidth - 180) / 2) : Math.min(680, window.innerWidth - 80);
-        const linesPerPage = Math.max(8, Math.floor(stageH / (s.fontSize * s.lineHeight)) - 1);
-        const charsPerLine = Math.max(32, Math.floor(colW / (s.fontSize * 0.52)));
-        const maxChars = Math.max(420, Math.floor(linesPerPage * charsPerLine * 0.86));
+        const gap = isSpread ? 56 : 32;
+        const vpWidth = Math.max(240, vp.clientWidth);
+        const colWidth = isSpread ? Math.floor((vpWidth - gap) / 2) : vpWidth;
 
-        const pages = [];
-        let currentHtml = `<h2 style="font-size:${Math.round(s.fontSize * 1.32)}px;">${escapeHtml(ch.title)}</h2>`;
-        let currentChars = ch.title.length + 120;
+        track.style.columnWidth = colWidth + 'px';
+        track.style.columnGap = gap + 'px';
+        track.style.width = vpWidth + 'px';
 
-        ch.paragraphs.forEach(p => {
-          const pHtml = `<p>${applyHighlightsToText(p, book.id, chapterIdx)}</p>`;
-          if (currentChars + p.length > maxChars && currentChars > 180) {
-            pages.push(currentHtml);
-            currentHtml = pHtml;
-            currentChars = p.length;
-          } else {
-            currentHtml += pHtml;
-            currentChars += p.length + 45;
-          }
-        });
-        if (currentHtml) pages.push(currentHtml);
-        return pages.length ? pages : ['<p></p>'];
+        // Measure exact number of pages rendered by browser layout engine!
+        const scrollW = Math.max(vpWidth, track.scrollWidth);
+        colPageStride = vpWidth + gap;
+        totalColPages = Math.max(1, Math.round((scrollW + gap) / colPageStride));
+        currentPages = new Array(totalColPages);
+
+        if (currentPageIdx >= totalColPages) currentPageIdx = totalColPages - 1;
+        if (currentPageIdx < 0) currentPageIdx = 0;
+
+        if (instant || s.pageTurn === 'none') track.classList.add('no-anim');
+        else track.classList.remove('no-anim');
+
+        track.style.transform = `translateX(-${currentPageIdx * colPageStride}px)`;
       }
 
       function renderReaderContent(direction = null) {
@@ -1863,14 +1945,18 @@
         const ch = book.chapters[currentChapterIdx] || book.chapters[0];
         document.getElementById('readerBookTitle').textContent = book.title;
         document.getElementById('readerChapterLabel').textContent = ch.title;
+        const immHeader = document.getElementById('immersiveHeader');
+        if (immHeader) immHeader.textContent = ch.title || book.title;
 
         applyReaderSettings();
         const s = state.readerSettings;
 
+        const chapterHtml = `<h2 style="font-size:${Math.round(s.fontSize * 1.32)}px;">${escapeHtml(ch.title)}</h2>` +
+          ch.paragraphs.map(p => `<p>${applyHighlightsToText(p, book.id, currentChapterIdx)}</p>`).join('');
+
         if (s.layout === 'scroll') {
           const sc = document.getElementById('scrollContent');
-          sc.innerHTML = `<h2 style="font-size:${Math.round(s.fontSize * 1.4)}px;">${escapeHtml(ch.title)}</h2>` +
-            ch.paragraphs.map(p => `<p>${applyHighlightsToText(p, book.id, currentChapterIdx)}</p>`).join('') +
+          sc.innerHTML = chapterHtml +
             `<div class="flex justify-between pt-8 mt-8 border-t" style="border-color:var(--r-border);">
               <button id="scrollPrevChBtn" class="px-4 py-2 rounded-xl border text-xs font-medium ${currentChapterIdx === 0 ? 'opacity-30 pointer-events-none' : 'hover:bg-black/5'}" style="border-color:var(--r-border);">← Previous Chapter</button>
               <button id="scrollNextChBtn" class="px-4 py-2 rounded-xl border text-xs font-medium ${currentChapterIdx >= book.chapters.length - 1 ? 'opacity-30 pointer-events-none' : 'hover:bg-black/5'}" style="border-color:var(--r-border);">Next Chapter →</button>
@@ -1878,26 +1964,12 @@
           document.getElementById('scrollPrevChBtn').onclick = () => { if (currentChapterIdx > 0) { currentChapterIdx--; currentPageIdx = 0; renderReaderContent(); document.getElementById('scrollContainer').scrollTop = 0; } };
           document.getElementById('scrollNextChBtn').onclick = () => { if (currentChapterIdx < book.chapters.length - 1) { currentChapterIdx++; currentPageIdx = 0; renderReaderContent(); document.getElementById('scrollContainer').scrollTop = 0; } };
         } else {
-          currentPages = paginateChapter(book, currentChapterIdx);
-          const isSpread = s.spread && window.innerWidth >= 1024;
-          const step = isSpread ? 2 : 1;
-          if (currentPageIdx >= currentPages.length) currentPageIdx = Math.max(0, currentPages.length - step);
-          if (isSpread && currentPageIdx % 2 !== 0) currentPageIdx = Math.max(0, currentPageIdx - 1);
-
-          const leftEl = document.getElementById('pageLeft');
-          const rightEl = document.getElementById('pageRight');
-          leftEl.innerHTML = currentPages[currentPageIdx] || '';
-          rightEl.innerHTML = isSpread ? (currentPages[currentPageIdx + 1] || '') : '';
-
-          // Apply page turn animation
-          const pc = document.getElementById('paginatedContainer');
-          pc.classList.remove('anim-slide-next', 'anim-slide-prev', 'anim-curl-next', 'anim-curl-prev', 'anim-fade');
-          if (direction && s.pageTurn !== 'none') {
-            void pc.offsetWidth;
-            if (s.pageTurn === 'fade') pc.classList.add('anim-fade');
-            else if (s.pageTurn === 'curl') pc.classList.add(direction === 'next' ? 'anim-curl-next' : 'anim-curl-prev');
-            else pc.classList.add(direction === 'next' ? 'anim-slide-next' : 'anim-slide-prev');
+          const track = document.getElementById('colTrack');
+          if (track.dataset.renderedKey !== `${book.id}:${currentChapterIdx}:${state.highlights.length}`) {
+            track.innerHTML = chapterHtml;
+            track.dataset.renderedKey = `${book.id}:${currentChapterIdx}:${state.highlights.length}`;
           }
+          layoutMultiColumnPages(direction === null);
         }
 
         bindHighlightClicks();
@@ -1927,12 +1999,10 @@
           chFraction = sc.scrollTop / maxScroll;
           document.getElementById('footerPageStatus').textContent = `Chapter ${currentChapterIdx + 1} of ${totalCh}`;
         } else {
-          const isSpread = state.readerSettings.spread && window.innerWidth >= 1024;
-          const endPage = isSpread ? Math.min(totalPagesInCh, currentPageIdx + 2) : currentPageIdx + 1;
-          chFraction = endPage / totalPagesInCh;
-          document.getElementById('footerPageStatus').textContent = isSpread && endPage > currentPageIdx + 1
-            ? `Pages ${currentPageIdx + 1}–${endPage} of ${totalPagesInCh}`
-            : `Page ${currentPageIdx + 1} of ${totalPagesInCh}`;
+          chFraction = (currentPageIdx + 1) / totalPagesInCh;
+          document.getElementById('footerPageStatus').textContent = `Page ${currentPageIdx + 1} of ${totalPagesInCh}`;
+          const immFoot = document.getElementById('immersiveFooter');
+          if (immFoot) immFoot.textContent = `${currentPageIdx + 1} of ${totalPagesInCh}`;
         }
 
         const overallPct = Math.min(100, Math.round(((currentChapterIdx + chFraction) / totalCh) * 100));
@@ -1987,16 +2057,19 @@
         document.getElementById('readerView').classList.add('hidden');
         document.getElementById('readerView').classList.remove('flex');
         currentBookId = null;
+        syncNativeThemeBar(false);
         renderAll();
       }
 
       function nextPage() {
         const book = getBook(currentBookId);
         if (!book || state.readerSettings.layout === 'scroll') return;
-        const step = (state.readerSettings.spread && window.innerWidth >= 1024) ? 2 : 1;
-        if (currentPageIdx + step < currentPages.length) {
-          currentPageIdx += step;
-          renderReaderContent('next');
+        if (readerChromeVisible) setReaderChrome(false);
+        if (currentPageIdx + 1 < totalColPages) {
+          currentPageIdx += 1;
+          layoutMultiColumnPages(false);
+          updateReaderProgressUI();
+          updateBookmarkIcon();
         } else if (currentChapterIdx < book.chapters.length - 1) {
           currentChapterIdx++;
           currentPageIdx = 0;
@@ -2009,14 +2082,15 @@
       function prevPage() {
         const book = getBook(currentBookId);
         if (!book || state.readerSettings.layout === 'scroll') return;
-        const step = (state.readerSettings.spread && window.innerWidth >= 1024) ? 2 : 1;
-        if (currentPageIdx - step >= 0) {
-          currentPageIdx -= step;
-          renderReaderContent('prev');
+        if (readerChromeVisible) setReaderChrome(false);
+        if (currentPageIdx - 1 >= 0) {
+          currentPageIdx -= 1;
+          layoutMultiColumnPages(false);
+          updateReaderProgressUI();
+          updateBookmarkIcon();
         } else if (currentChapterIdx > 0) {
           currentChapterIdx--;
-          currentPages = paginateChapter(book, currentChapterIdx);
-          currentPageIdx = Math.max(0, currentPages.length - step);
+          currentPageIdx = 99999; // will clamp to last page of previous chapter!
           renderReaderContent('prev');
         }
       }
@@ -2182,7 +2256,8 @@
         }
         const matches = [];
         book.chapters.forEach((ch, chIdx) => {
-          ch.paragraphs.forEach(p => {
+          ch.paragraphs.forEach(rawP => {
+            const p = typeof rawP === 'string' ? rawP : (rawP.html || '').replace(/<[^>]+>/g, '');
             const pos = p.toLowerCase().indexOf(q);
             if (pos >= 0) {
               const start = Math.max(0, pos - 40);
@@ -2288,7 +2363,7 @@
         }
         const book = getBook(currentBookId);
         if (!book) return;
-        const text = book.chapters[currentChapterIdx].paragraphs.join(' ');
+        const text = book.chapters[currentChapterIdx].paragraphs.map(p => typeof p === 'string' ? p : (p.html || '').replace(/<[^>]+>/g, '')).join(' ');
         const utt = new SpeechSynthesisUtterance(text);
         utt.rate = 1.0;
         utt.onend = () => stopTTS();
@@ -2397,7 +2472,40 @@
           }
         }
 
-        // Read spine chapters
+        // Build real chapter title map from EPUB 3 nav.xhtml and EPUB 2 toc.ncx!
+        const tocMap = {};
+        const normalizeHref = (h) => decodeURIComponent(String(h || '').split('#')[0]).replace(/^\.\//, '').split('/').pop().toLowerCase();
+
+        // Try EPUB 3 nav document
+        const navItem = Object.values(manifest).find(m => (m.properties || '').includes('nav'));
+        if (navItem && navItem.href) {
+          const navFile = zip.file(opfDir + decodeURIComponent(navItem.href));
+          if (navFile) {
+            const navDoc = parser.parseFromString(await navFile.async('string'), 'text/html');
+            navDoc.querySelectorAll('nav a[href]').forEach(a => {
+              const key = normalizeHref(a.getAttribute('href'));
+              const label = a.textContent.replace(/\s+/g, ' ').trim();
+              if (key && label && !tocMap[key]) tocMap[key] = label;
+            });
+          }
+        }
+
+        // Try EPUB 2 toc.ncx
+        const ncxItem = Object.values(manifest).find(m => (m.mediaType || '').includes('ncx') || (m.href || '').toLowerCase().endsWith('.ncx'));
+        if (ncxItem && ncxItem.href) {
+          const ncxFile = zip.file(opfDir + decodeURIComponent(ncxItem.href));
+          if (ncxFile) {
+            const ncxDoc = parser.parseFromString(await ncxFile.async('string'), 'application/xml');
+            ncxDoc.querySelectorAll('navPoint').forEach(np => {
+              const src = np.querySelector('content')?.getAttribute('src');
+              const label = np.querySelector('navLabel text')?.textContent?.replace(/\s+/g, ' ').trim();
+              const key = normalizeHref(src);
+              if (key && label && !tocMap[key]) tocMap[key] = label;
+            });
+          }
+        }
+
+        // Read spine chapters with real TOC names & preserved bold/italic inline formatting
         const spineRefs = Array.from(opfDoc.querySelectorAll('spine itemref')).map(r => r.getAttribute('idref'));
         const chapters = [];
         for (let i = 0; i < spineRefs.length; i++) {
@@ -2407,10 +2515,21 @@
           if (!htmlFile) continue;
           const xhtml = await htmlFile.async('string');
           const doc = parser.parseFromString(xhtml, 'text/html');
-          const heading = doc.querySelector('h1, h2, h3, title')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
-          const paragraphs = Array.from(doc.querySelectorAll('p, div.p, li'))
-            .map(el => el.textContent.replace(/\s+/g, ' ').trim())
-            .filter(t => t.length > 0);
+
+          const hrefKey = normalizeHref(item.href);
+          const headingEl = doc.querySelector('h1, h2, h3, [class*="chap"], [class*="ct"], [class*="title"]:not(title)');
+          const domHeading = headingEl ? headingEl.textContent.replace(/\s+/g, ' ').trim() : '';
+          const heading = tocMap[hrefKey] || (domHeading && domHeading.toLowerCase() !== title.toLowerCase() ? domHeading : `Chapter ${chapters.length + 1}`);
+
+          const paragraphs = Array.from(doc.querySelectorAll('p, div.p, li, blockquote'))
+            .map(el => {
+              const plain = el.textContent.replace(/\s+/g, ' ').trim();
+              if (!plain) return null;
+              // Keep safe bold/italic markup if present
+              const hasInline = el.querySelector('b, strong, i, em');
+              return hasInline ? { html: el.innerHTML.replace(/\s+/g, ' ').trim() } : plain;
+            })
+            .filter(Boolean);
           if (paragraphs.length > 0) {
             chapters.push({ title: heading, paragraphs });
           }
@@ -2807,6 +2926,21 @@
             touchStartY = e.touches[0].clientY;
           }
         }, { passive: true });
+        stageEl.addEventListener('click', (e) => {
+          if (!currentBookId) return;
+          if (e.target.closest('button, mark, a, input, select')) return;
+          const sel = window.getSelection();
+          if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) return;
+          const rect = stageEl.getBoundingClientRect();
+          const relX = (e.clientX - rect.left) / Math.max(1, rect.width);
+          if (state.readerSettings.layout !== 'scroll' && relX < 0.22) {
+            prevPage();
+          } else if (state.readerSettings.layout !== 'scroll' && relX > 0.78) {
+            nextPage();
+          } else {
+            setReaderChrome(!readerChromeVisible);
+          }
+        });
         stageEl.addEventListener('touchend', (e) => {
           if (!currentBookId || state.readerSettings.layout === 'scroll') return;
           if (!e.changedTouches.length) return;
@@ -2938,9 +3072,11 @@
           const targetCh = Math.min(book.chapters.length - 1, Math.floor(pct * book.chapters.length));
           const chFrac = (pct * book.chapters.length) - targetCh;
           currentChapterIdx = targetCh;
-          currentPages = paginateChapter(book, currentChapterIdx);
-          currentPageIdx = Math.min(currentPages.length - 1, Math.floor(chFrac * currentPages.length));
+          currentPageIdx = 0;
           renderReaderContent();
+          currentPageIdx = Math.min(totalColPages - 1, Math.floor(chFrac * totalColPages));
+          layoutMultiColumnPages(true);
+          updateReaderProgressUI();
         };
 
         // Scroll tracking
