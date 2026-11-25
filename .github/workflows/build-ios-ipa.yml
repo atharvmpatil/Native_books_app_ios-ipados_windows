@@ -1,4 +1,4 @@
-name: Build Native iPhone & iPad IPA (v2 Full-Screen)
+name: Build Native iPhone & iPad IPA (v3 Fixed)
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGNING_IDENTITY=""
 
       - name: Verify Full-Screen Launch Screen in Built Info.plist
         run: |
@@ -41,10 +41,10 @@ jobs:
         run: |
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/BooksApp.app Payload/
-          zip -r BooksApp-v2-FullScreen.ipa Payload
+          zip -r BooksApp-v3-Fixed.ipa Payload
 
       - name: Upload Downloadable IPA
         uses: actions/upload-artifact@v4
         with:
-          name: BooksApp-v2-FullScreen-IPA
-          path: ios-app/BooksApp-v2-FullScreen.ipa
+          name: BooksApp-v3-Fixed-IPA
+          path: ios-app/BooksApp-v3-Fixed.ipa
