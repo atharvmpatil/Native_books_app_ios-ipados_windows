@@ -1,0 +1,19 @@
+name: BooksApp
+options:
+  bundleIdPrefix: com.localbooks
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  BooksApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: BooksApp
+    info:
+      path: BooksApp/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.localbooks.reader
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        CODE_SIGNING_ALLOWED: NO
