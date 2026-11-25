@@ -1,0 +1,47 @@
+name: Build Native iPhone & iPad IPA (v2 Full-Screen)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Build Unsigned iOS/iPadOS App
+        run: |
+          xcodebuild \
+            -project BooksApp.xcodeproj \
+            -scheme BooksApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Verify Full-Screen Launch Screen in Built Info.plist
+        run: |
+          plutil -p build/Build/Products/Release-iphoneos/BooksApp.app/Info.plist | grep -E "UILaunchScreen|CFBundleShortVersionString"
+
+      - name: Package Unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/BooksApp.app Payload/
+          zip -r BooksApp-v2-FullScreen.ipa Payload
+
+      - name: Upload Downloadable IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: BooksApp-v2-FullScreen-IPA
+          path: BooksApp-v2-FullScreen.ipa
