@@ -30,6 +30,7 @@ def get_data_dir():
 
 RESOURCE_DIR = get_resource_dir()
 SYNC_FILE = os.path.join(get_data_dir(), "sync_state.json")
+BOOKS_FILE = os.path.join(get_data_dir(), "books_library.json")
 
 
 def get_lan_ip():
@@ -60,6 +61,23 @@ def write_sync_state(data):
     os.replace(tmp, SYNC_FILE)
 
 
+def read_books_library():
+    if os.path.exists(BOOKS_FILE):
+        try:
+            with open(BOOKS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"libraryVersion": 0, "books": []}
+    return {"libraryVersion": 0, "books": []}
+
+
+def write_books_library(data):
+    tmp = BOOKS_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    os.replace(tmp, BOOKS_FILE)
+
+
 class BooksHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=RESOURCE_DIR, **kwargs)
@@ -73,7 +91,13 @@ class BooksHandler(SimpleHTTPRequestHandler):
             self._send_json({"booksWifiSync": True, "lanUrl": f"http://{get_lan_ip()}:{PORT}"})
             return
         if self.path == "/api/sync":
-            self._send_json(read_sync_state())
+            st = read_sync_state()
+            lib = read_books_library()
+            st["libraryVersion"] = max(st.get("libraryVersion", 0), lib.get("libraryVersion", 0))
+            self._send_json(st)
+            return
+        if self.path == "/api/books":
+            self._send_json(read_books_library())
             return
         if self.path == "/":
             self.path = "/index.html"
@@ -94,6 +118,33 @@ class BooksHandler(SimpleHTTPRequestHandler):
                 incoming["progress"] = merged_progress
                 write_sync_state(incoming)
                 self._send_json({"ok": True})
+            except Exception as exc:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(str(exc).encode("utf-8"))
+            return
+        if self.path == "/api/books":
+            length = int(self.headers.get("Content-Length", "0"))
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                incoming = json.loads(raw.decode("utf-8"))
+                current = read_books_library()
+                deleted = set(current.get("deletedBookIds", [])) | set(incoming.get("deletedBookIds", []))
+                by_id = {
+                    b["id"]: b
+                    for b in current.get("books", [])
+                    if isinstance(b, dict) and b.get("id") and b["id"] not in deleted
+                }
+                for b in incoming.get("books", []):
+                    if isinstance(b, dict) and b.get("id") and b["id"] not in deleted:
+                        by_id[b["id"]] = b
+                merged = {
+                    "libraryVersion": max(current.get("libraryVersion", 0), incoming.get("libraryVersion", 0)),
+                    "books": list(by_id.values()),
+                    "deletedBookIds": sorted(deleted),
+                }
+                write_books_library(merged)
+                self._send_json({"ok": True, "count": len(merged["books"])})
             except Exception as exc:
                 self.send_response(400)
                 self.end_headers()
