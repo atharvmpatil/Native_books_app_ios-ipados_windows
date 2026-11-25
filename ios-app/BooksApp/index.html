@@ -899,6 +899,7 @@
           pageTurn: 'curl'
         },
         libraryVersion: 0,
+        deletedBookIds: [],
         cloudSync: {
           enabled: false,
           dbUrl: '',
@@ -924,17 +925,73 @@
       let editingHighlightId = null;
       let isSpeaking = false;
 
-      // Safe localStorage helpers
+      // IndexedDB helper (handles hundreds of MB of EPUB/PDF books cleanly!)
+      const IDB_NAME = 'AppleBooksLocalDB';
+      const IDB_STORE = 'stateStore';
+      function idbOpen() {
+        return new Promise((resolve, reject) => {
+          if (!window.indexedDB) return reject(new Error('No IndexedDB'));
+          const req = indexedDB.open(IDB_NAME, 1);
+          req.onupgradeneeded = () => {
+            if (!req.result.objectStoreNames.contains(IDB_STORE)) {
+              req.result.createObjectStore(IDB_STORE);
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      }
+      async function idbSave(data) {
+        try {
+          const db = await idbOpen();
+          await new Promise((res, rej) => {
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).put(data, STORAGE_KEY);
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+          });
+        } catch (e) { /* ignore in restricted contexts */ }
+      }
+      async function idbLoad() {
+        try {
+          const db = await idbOpen();
+          return await new Promise((res, rej) => {
+            const tx = db.transaction(IDB_STORE, 'readonly');
+            const req = tx.objectStore(IDB_STORE).get(STORAGE_KEY);
+            req.onsuccess = () => res(req.result || null);
+            req.onerror = () => rej(req.error);
+          });
+        } catch (e) { return null; }
+      }
+
+      function applyParsedState(parsed) {
+        if (!parsed || typeof parsed !== 'object') return;
+        state = Object.assign({}, state, parsed);
+        state.readerSettings = Object.assign({}, state.readerSettings, parsed.readerSettings || {});
+        state.goals = Object.assign({}, state.goals, parsed.goals || {});
+        state.cloudSync = Object.assign({}, state.cloudSync, parsed.cloudSync || {});
+      }
+
+      // Exposed for native iOS Swift Documents/ disk loader
+      window.__hydrateNativeBooksState = function(jsonStr) {
+        try {
+          if (!jsonStr) return;
+          const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+          applyParsedState(parsed);
+          ensureDefaultBooks();
+          renderAll();
+        } catch (e) {}
+      };
+
+      function ensureDefaultBooks() {
+        ensureDefaultBooks();
+      }
+
+      // Safe storage loader (checks localStorage synchronously, then upgrades from IndexedDB / native iOS disk)
       function loadState() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            state = Object.assign({}, state, parsed);
-            state.readerSettings = Object.assign({}, state.readerSettings, parsed.readerSettings || {});
-            state.goals = Object.assign({}, state.goals, parsed.goals || {});
-            state.cloudSync = Object.assign({}, state.cloudSync, parsed.cloudSync || {});
-          }
+          if (raw) applyParsedState(JSON.parse(raw));
         } catch (e) { /* sandbox storage fallback */ }
 
         if (!state.books || state.books.length === 0) {
@@ -959,10 +1016,23 @@
         }
       }
 
+      let nativeSaveTimer = null;
       function saveState(skipCloudPush = false) {
+        // 1. Save full library (including large uploaded EPUBs/PDFs) to IndexedDB
+        idbSave(state);
+        // 2. Save to Native iOS Documents/ folder if running in the iPhone/iPad app (never vanishes on app close!)
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksSave) {
+          clearTimeout(nativeSaveTimer);
+          nativeSaveTimer = setTimeout(() => {
+            try {
+              window.webkit.messageHandlers.booksSave.postMessage(JSON.stringify(state));
+            } catch (e) {}
+          }, 150);
+        }
+        // 3. Also mirror to localStorage when it fits
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        } catch (e) { /* ignore quota / sandbox errors */ }
+        } catch (e) { /* large libraries live safely in IndexedDB & native Documents/ */ }
         if (!skipCloudPush && (wifiSyncActive || (state.cloudSync && state.cloudSync.enabled))) {
           scheduleCloudPush();
         }
@@ -1117,8 +1187,11 @@
               state.goals.todayMinutes = remote.goals.todayMinutes;
             }
             let booksAdded = false;
+            if (Array.isArray(remote.deletedBookIds) && remote.deletedBookIds.length) {
+              if (applyDeletedBooks(remote.deletedBookIds)) booksAdded = true;
+            }
             if (Array.isArray(remote.uploadedBooks) && remote.uploadedBooks.length) {
-              booksAdded = mergeRemoteBooks(remote.uploadedBooks);
+              if (mergeRemoteBooks(remote.uploadedBooks)) booksAdded = true;
             }
             if (wifiSyncActive && (remote.libraryVersion || 0) > (state.libraryVersion || 0)) {
               const fetched = await pullUploadedBooksFromWifi();
@@ -1655,8 +1728,13 @@
           state.books = state.books.filter(b => b.id !== bookId);
           state.highlights = state.highlights.filter(h => h.bookId !== bookId);
           delete state.progress[bookId];
-          saveState(); renderAll(); closeModal('bookMenuModal');
-          showToast('Removed from library');
+          state.deletedBookIds = Array.from(new Set([...(state.deletedBookIds || []), bookId]));
+          state.libraryVersion = Date.now();
+          saveState();
+          pushUploadedBooksToWifi();
+          renderAll();
+          closeModal('bookMenuModal');
+          showToast('Removed from library across devices');
         };
         actions.querySelectorAll('[data-toggle-col]').forEach(btn => {
           btn.onclick = () => {
@@ -2420,12 +2498,22 @@
         return state.books.filter(b => !DEFAULT_BOOK_IDS.has(b.id));
       }
 
+      function applyDeletedBooks(remoteDeletedIds) {
+        if (!Array.isArray(remoteDeletedIds) || remoteDeletedIds.length === 0) return false;
+        state.deletedBookIds = Array.from(new Set([...(state.deletedBookIds || []), ...remoteDeletedIds]));
+        const delSet = new Set(state.deletedBookIds);
+        const before = state.books.length;
+        state.books = state.books.filter(b => !delSet.has(b.id));
+        return state.books.length !== before;
+      }
+
       function mergeRemoteBooks(remoteBooks) {
         if (!Array.isArray(remoteBooks) || remoteBooks.length === 0) return false;
+        const delSet = new Set(state.deletedBookIds || []);
         const existingIds = new Set(state.books.map(b => b.id));
         let added = 0;
         remoteBooks.forEach(rb => {
-          if (rb && rb.id && rb.title && Array.isArray(rb.chapters) && !existingIds.has(rb.id)) {
+          if (rb && rb.id && !delSet.has(rb.id) && rb.title && Array.isArray(rb.chapters) && !existingIds.has(rb.id)) {
             state.books.unshift(rb);
             existingIds.add(rb.id);
             added++;
@@ -2442,7 +2530,8 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               libraryVersion: state.libraryVersion || Date.now(),
-              books: getUploadedBooks()
+              books: getUploadedBooks(),
+              deletedBookIds: state.deletedBookIds || []
             })
           });
         } catch (e) { /* retry on next sync */ }
@@ -2454,12 +2543,13 @@
           const res = await fetch('/api/books', { method: 'GET' });
           if (!res.ok) return false;
           const data = await res.json();
-          if (data && Array.isArray(data.books)) {
-            const changed = mergeRemoteBooks(data.books);
+          if (data) {
+            const removed = applyDeletedBooks(data.deletedBookIds || []);
+            const added = Array.isArray(data.books) ? mergeRemoteBooks(data.books) : false;
             if (data.libraryVersion && data.libraryVersion > (state.libraryVersion || 0)) {
               state.libraryVersion = data.libraryVersion;
             }
-            return changed;
+            return removed || added;
           }
         } catch (e) {}
         return false;
@@ -2470,6 +2560,7 @@
           version: 2,
           exportedAt: new Date().toISOString(),
           libraryVersion: state.libraryVersion || 0,
+          deletedBookIds: state.deletedBookIds || [],
           progress: state.progress,
           bookmarks: state.bookmarks,
           highlights: state.highlights,
@@ -2498,6 +2589,9 @@
         if (payload.readerSettings) state.readerSettings = Object.assign({}, state.readerSettings, payload.readerSettings);
         if (Array.isArray(payload.collections)) {
           state.collections = Array.from(new Set([...state.collections, ...payload.collections]));
+        }
+        if (Array.isArray(payload.deletedBookIds)) {
+          applyDeletedBooks(payload.deletedBookIds);
         }
         if (Array.isArray(payload.uploadedBooks)) {
           mergeRemoteBooks(payload.uploadedBooks);
@@ -2921,6 +3015,16 @@
       loadState();
       wireEvents();
       renderAll();
+      idbLoad().then(saved => {
+        if (saved && Array.isArray(saved.books) && saved.books.length) {
+          applyParsedState(saved);
+          ensureDefaultBooks();
+          renderAll();
+        }
+      });
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksBridge) {
+        try { window.webkit.messageHandlers.booksBridge.postMessage('requestSavedState'); } catch (e) {}
+      }
       detectWifiServer().then(async isWifi => {
         if (isWifi) {
           cloudSyncState = 'live';

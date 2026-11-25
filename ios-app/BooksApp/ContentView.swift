@@ -7,11 +7,18 @@ struct ContentView: View {
     @State private var urlDraft = ""
 
     var body: some View {
-        BooksWebView(remoteUrl: windowsWifiUrl) {
-            urlDraft = windowsWifiUrl
-            showWifiPrompt = true
+        ZStack {
+            // Matching native background behind the Dynamic Island & status bar (zero black bars!)
+            Color(UIColor.systemGroupedBackground)
+                .ignoresSafeArea(.all)
+
+            // WebView stays cleanly BELOW the Dynamic Island / status bar, extending to bottom edge
+            BooksWebView(remoteUrl: windowsWifiUrl) {
+                urlDraft = windowsWifiUrl
+                showWifiPrompt = true
+            }
+            .ignoresSafeArea(.container, edges: .bottom)
         }
-        .ignoresSafeArea(.all)
         .alert("Connect to Windows PC Wi-Fi Sync", isPresented: $showWifiPrompt) {
             TextField("http://192.168.1.42:8765", text: $urlDraft)
                 .textInputAutocapitalization(.never)
@@ -40,17 +47,21 @@ struct BooksWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "booksBridge")
+        contentController.add(context.coordinator, name: "booksSave")
 
         let config = WKWebViewConfiguration()
         config.userContentController = contentController
         config.allowsInlineMediaPlayback = true
+        config.websiteDataStore = .default()
 
         let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = context.coordinator
         webView.scrollView.bounces = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.isOpaque = false
         webView.backgroundColor = UIColor.systemGroupedBackground
         webView.scrollView.backgroundColor = UIColor.systemGroupedBackground
+        context.coordinator.webView = webView
         loadTarget(in: webView)
         return webView
     }
@@ -71,16 +82,49 @@ struct BooksWebView: UIViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject, WKScriptMessageHandler {
+    final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         let onOpenWifiConfig: () -> Void
+        weak var webView: WKWebView?
+
         init(onOpenWifiConfig: @escaping () -> Void) {
             self.onOpenWifiConfig = onOpenWifiConfig
         }
+
+        private var stateFileURL: URL {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            return docs.appendingPathComponent("books_state.json")
+        }
+
+        private func saveStateToDisk(_ json: String) {
+            DispatchQueue.global(qos: .utility).async {
+                try? json.data(using: .utf8)?.write(to: self.stateFileURL, options: .atomic)
+            }
+        }
+
+        private func pushSavedStateToWebView() {
+            guard let data = try? Data(contentsOf: stateFileURL),
+                  let jsonStr = String(data: data, encoding: .utf8),
+                  let encoded = try? JSONSerialization.data(withJSONObject: [jsonStr]),
+                  let arrStr = String(data: encoded, encoding: .utf8) else { return }
+            let js = "window.__hydrateNativeBooksState && window.__hydrateNativeBooksState((\(arrStr))[0]);"
+            DispatchQueue.main.async {
+                self.webView?.evaluateJavaScript(js, completionHandler: nil)
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            pushSavedStateToWebView()
+        }
+
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            if message.name == "booksBridge", (message.body as? String) == "openWifiConfig" {
-                DispatchQueue.main.async {
-                    self.onOpenWifiConfig()
+            if message.name == "booksBridge", let cmd = message.body as? String {
+                if cmd == "openWifiConfig" {
+                    DispatchQueue.main.async { self.onOpenWifiConfig() }
+                } else if cmd == "requestSavedState" {
+                    pushSavedStateToWebView()
                 }
+            } else if message.name == "booksSave", let json = message.body as? String {
+                saveStateToDisk(json)
             }
         }
     }
