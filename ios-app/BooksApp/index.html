@@ -898,6 +898,7 @@
           lineHeight: 1.7,
           pageTurn: 'curl'
         },
+        libraryVersion: 0,
         cloudSync: {
           enabled: false,
           dbUrl: '',
@@ -1115,14 +1116,27 @@
             if (remote.goals && (remote.goals.todayMinutes || 0) > (state.goals.todayMinutes || 0)) {
               state.goals.todayMinutes = remote.goals.todayMinutes;
             }
+            let booksAdded = false;
+            if (Array.isArray(remote.uploadedBooks) && remote.uploadedBooks.length) {
+              booksAdded = mergeRemoteBooks(remote.uploadedBooks);
+            }
+            if (wifiSyncActive && (remote.libraryVersion || 0) > (state.libraryVersion || 0)) {
+              const fetched = await pullUploadedBooksFromWifi();
+              if (fetched) booksAdded = true;
+            }
             state.cloudSync.lastSyncedAt = Date.now();
             cloudSyncState = 'live';
             cloudLastError = '';
             saveState(true);
+            if (booksAdded) {
+              renderSidebar();
+              if (!currentBookId) renderMainView();
+              showToast('New book synced from your other device!', 'success');
+            }
             if (jumped && currentBookId) {
               renderReaderContent();
               showToast('Picked up latest page from your other device', 'success');
-            } else if (!currentBookId) {
+            } else if (!currentBookId && !booksAdded) {
               renderMainView();
             }
           } else {
@@ -1273,18 +1287,31 @@
 
       function renderBookCard(book) {
         const prog = getBookProgress(book.id);
-        const pct = Math.round(prog.percent || 0);
-        const badge = book.status === 'finished'
-          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500 text-white shadow">Finished</span>`
+        const pct = book.status === 'finished' ? 100 : Math.round(prog.percent || 0);
+        const r = 6;
+        const c = 2 * Math.PI * r;
+        const offset = c - (pct / 100) * c;
+        const ringColor = book.status === 'finished' || pct >= 100 ? '#10b981' : '#007aff';
+
+        const ringIndicator = book.status === 'finished' || pct >= 100
+          ? `<span title="Finished (100%)" class="inline-flex items-center gap-1 shrink-0 text-[10px] font-semibold text-emerald-500">
+               <svg class="w-3.5 h-3.5" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="#10b981"/><path d="M5.2 8.2l1.8 1.8 3.8-4" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+               <span>100%</span>
+             </span>`
           : pct > 0
-            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/65 text-white glass">${pct}%</span>`
-            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/55 text-white glass">New</span>`;
+            ? `<span title="${pct}% finished" class="inline-flex items-center gap-1 shrink-0 text-[10px] font-semibold" style="color: var(--text-secondary);">
+                 <svg class="w-3.5 h-3.5 -rotate-90" viewBox="0 0 16 16">
+                   <circle cx="8" cy="8" r="${r}" fill="none" stroke="rgba(128,128,128,0.24)" stroke-width="2"></circle>
+                   <circle cx="8" cy="8" r="${r}" fill="none" stroke="${ringColor}" stroke-width="2" stroke-linecap="round" stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"></circle>
+                 </svg>
+                 <span>${pct}%</span>
+               </span>`
+            : `<span title="Not started" class="inline-flex items-center gap-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide" style="color: var(--accent);">New</span>`;
 
         return `
           <div class="book-card group flex flex-col cursor-pointer" data-open-book="${escapeHtml(book.id)}">
-            <div class="book-cover-wrap mb-2.5">
+            <div class="book-cover-wrap mb-2">
               <img src="${book.cover}" alt="${escapeHtml(book.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover" />
-              <div class="absolute top-2 right-2 z-10">${badge}</div>
               ${pct > 0 && pct < 100 ? `
                 <div class="absolute bottom-0 inset-x-0 h-1 bg-black/30 z-10">
                   <div class="h-full bg-white" style="width:${pct}%"></div>
@@ -1292,8 +1319,11 @@
               ` : ''}
             </div>
             <div class="flex items-start justify-between gap-1">
-              <div class="min-w-0">
-                <div class="text-[13px] font-semibold leading-snug truncate">${escapeHtml(book.title)}</div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <div class="text-[13px] font-semibold leading-snug truncate">${escapeHtml(book.title)}</div>
+                  ${ringIndicator}
+                </div>
                 <div class="text-[12px] truncate" style="color: var(--text-secondary);">${escapeHtml(book.author)}</div>
               </div>
               <button data-book-menu="${escapeHtml(book.id)}" title="More Options" class="p-1 rounded-md opacity-60 hover:opacity-100 hover:bg-black/5 shrink-0">
@@ -2209,7 +2239,9 @@
             showToast(`Could not import ${file.name}: ${err.message || 'Invalid file'}`, 'error');
           }
         }
+        state.libraryVersion = Date.now();
         saveState();
+        pushUploadedBooksToWifi();
         renderAll();
       }
 
@@ -2382,10 +2414,62 @@
         el.classList.remove('flex');
       }
 
+      const DEFAULT_BOOK_IDS = new Set(['book-meditations', 'book-alice', 'book-artofwar']);
+
+      function getUploadedBooks() {
+        return state.books.filter(b => !DEFAULT_BOOK_IDS.has(b.id));
+      }
+
+      function mergeRemoteBooks(remoteBooks) {
+        if (!Array.isArray(remoteBooks) || remoteBooks.length === 0) return false;
+        const existingIds = new Set(state.books.map(b => b.id));
+        let added = 0;
+        remoteBooks.forEach(rb => {
+          if (rb && rb.id && rb.title && Array.isArray(rb.chapters) && !existingIds.has(rb.id)) {
+            state.books.unshift(rb);
+            existingIds.add(rb.id);
+            added++;
+          }
+        });
+        return added > 0;
+      }
+
+      async function pushUploadedBooksToWifi() {
+        if (!wifiSyncActive) return;
+        try {
+          await fetch('/api/books', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              libraryVersion: state.libraryVersion || Date.now(),
+              books: getUploadedBooks()
+            })
+          });
+        } catch (e) { /* retry on next sync */ }
+      }
+
+      async function pullUploadedBooksFromWifi() {
+        if (!wifiSyncActive) return false;
+        try {
+          const res = await fetch('/api/books', { method: 'GET' });
+          if (!res.ok) return false;
+          const data = await res.json();
+          if (data && Array.isArray(data.books)) {
+            const changed = mergeRemoteBooks(data.books);
+            if (data.libraryVersion && data.libraryVersion > (state.libraryVersion || 0)) {
+              state.libraryVersion = data.libraryVersion;
+            }
+            return changed;
+          }
+        } catch (e) {}
+        return false;
+      }
+
       function buildSyncPayload() {
-        return {
-          version: 1,
+        const payload = {
+          version: 2,
           exportedAt: new Date().toISOString(),
+          libraryVersion: state.libraryVersion || 0,
           progress: state.progress,
           bookmarks: state.bookmarks,
           highlights: state.highlights,
@@ -2393,6 +2477,11 @@
           collections: state.collections,
           readerSettings: state.readerSettings
         };
+        // Include uploaded books directly in cloud sync (Firebase) when not using Wi-Fi /api/books
+        if (!wifiSyncActive) {
+          payload.uploadedBooks = getUploadedBooks();
+        }
+        return payload;
       }
 
       function applySyncPayload(payload) {
@@ -2409,6 +2498,9 @@
         if (payload.readerSettings) state.readerSettings = Object.assign({}, state.readerSettings, payload.readerSettings);
         if (Array.isArray(payload.collections)) {
           state.collections = Array.from(new Set([...state.collections, ...payload.collections]));
+        }
+        if (Array.isArray(payload.uploadedBooks)) {
+          mergeRemoteBooks(payload.uploadedBooks);
         }
         saveState();
         renderAll();
@@ -2829,10 +2921,13 @@
       loadState();
       wireEvents();
       renderAll();
-      detectWifiServer().then(isWifi => {
+      detectWifiServer().then(async isWifi => {
         if (isWifi) {
           cloudSyncState = 'live';
           updateSyncIndicators();
+          const gotBooks = await pullUploadedBooksFromWifi();
+          if (gotBooks) { saveState(true); renderAll(); }
+          else if (getUploadedBooks().length > 0) { pushUploadedBooksToWifi(); }
           startCloudPolling();
         } else if (state.cloudSync && state.cloudSync.enabled) {
           startCloudPolling();
