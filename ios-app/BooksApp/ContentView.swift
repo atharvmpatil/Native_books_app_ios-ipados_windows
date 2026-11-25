@@ -7,22 +7,11 @@ struct ContentView: View {
     @State private var urlDraft = ""
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            BooksWebView(remoteUrl: windowsWifiUrl)
-                .ignoresSafeArea(edges: .bottom)
-
-            Button {
-                urlDraft = windowsWifiUrl
-                showWifiPrompt = true
-            } label: {
-                Image(systemName: windowsWifiUrl.isEmpty ? "wifi.slash" : "wifi")
-                    .font(.system(size: 13, weight: .semibold))
-                    .padding(8)
-                    .background(.ultraThinMaterial, in: Circle())
-            }
-            .padding(.top, 10)
-            .padding(.trailing, 14)
+        BooksWebView(remoteUrl: windowsWifiUrl) {
+            urlDraft = windowsWifiUrl
+            showWifiPrompt = true
         }
+        .ignoresSafeArea(.all)
         .alert("Connect to Windows PC Wi-Fi Sync", isPresented: $showWifiPrompt) {
             TextField("http://192.168.1.42:8765", text: $urlDraft)
                 .textInputAutocapitalization(.never)
@@ -42,12 +31,26 @@ struct ContentView: View {
 
 struct BooksWebView: UIViewRepresentable {
     let remoteUrl: String
+    let onOpenWifiConfig: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onOpenWifiConfig: onOpenWifiConfig)
+    }
 
     func makeUIView(context: Context) -> WKWebView {
+        let contentController = WKUserContentController()
+        contentController.add(context.coordinator, name: "booksBridge")
+
         let config = WKWebViewConfiguration()
+        config.userContentController = contentController
         config.allowsInlineMediaPlayback = true
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.scrollView.bounces = false
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.isOpaque = false
+        webView.backgroundColor = UIColor.systemGroupedBackground
+        webView.scrollView.backgroundColor = UIColor.systemGroupedBackground
         loadTarget(in: webView)
         return webView
     }
@@ -64,6 +67,20 @@ struct BooksWebView: UIViewRepresentable {
         } else if let localHtml = Bundle.main.url(forResource: "index", withExtension: "html") {
             if webView.url != localHtml {
                 webView.loadFileURL(localHtml, allowingReadAccessTo: localHtml.deletingLastPathComponent())
+            }
+        }
+    }
+
+    final class Coordinator: NSObject, WKScriptMessageHandler {
+        let onOpenWifiConfig: () -> Void
+        init(onOpenWifiConfig: @escaping () -> Void) {
+            self.onOpenWifiConfig = onOpenWifiConfig
+        }
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "booksBridge", (message.body as? String) == "openWifiConfig" {
+                DispatchQueue.main.async {
+                    self.onOpenWifiConfig()
+                }
             }
         }
     }
