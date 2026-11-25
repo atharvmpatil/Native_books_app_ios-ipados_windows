@@ -8,6 +8,9 @@ on:
 jobs:
   build-ipa:
     runs-on: macos-latest
+    defaults:
+  run:
+    working-directory: ios-app
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
