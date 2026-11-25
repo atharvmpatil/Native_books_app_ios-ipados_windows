@@ -8,6 +8,9 @@ on:
 jobs:
   build-ipa:
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios-app
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,4 +47,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BooksApp-v2-FullScreen-IPA
-          path: BooksApp-v2-FullScreen.ipa
+          path: ios-app/BooksApp-v2-FullScreen.ipa
