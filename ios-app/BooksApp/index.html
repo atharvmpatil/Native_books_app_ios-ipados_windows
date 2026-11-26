@@ -947,11 +947,16 @@
         progress: {}, // { [bookId]: { chapterIdx, pageIdx, scrollRatio, percent, updatedAt } }
         bookmarks: {}, // { [bookId]: [{ id, chapterIdx, pageIdx, label, createdAt }] }
         highlights: [], // [{ id, bookId, chapterIdx, text, color, note, createdAt }]
+        bookOrder: [],
+        bookOrderUpdatedAt: 0,
         goals: {
           dailyMinutes: 15,
-          todayMinutes: 6,
+          todayMinutes: 0,
+          todaySeconds: 0,
           todayDate: new Date().toISOString().slice(0, 10),
-          streakDays: 3
+          goalReachedDate: '',
+          streakDays: 1,
+          updatedAt: 0
         },
         readerSettings: {
           theme: 'paper',
@@ -1096,8 +1101,24 @@
           });
         }
         if (parsed.readerSettings) state.readerSettings = Object.assign({}, state.readerSettings, parsed.readerSettings);
+        if (Array.isArray(parsed.bookOrder) && (parsed.bookOrderUpdatedAt || 0) >= (state.bookOrderUpdatedAt || 0)) {
+          state.bookOrder = parsed.bookOrder;
+          state.bookOrderUpdatedAt = parsed.bookOrderUpdatedAt || 0;
+        }
         if (parsed.goals) {
-          state.goals = Object.assign({}, state.goals, parsed.goals);
+          const today = new Date().toISOString().slice(0, 10);
+          if (parsed.goals.todayDate === today) {
+            const pSec = typeof parsed.goals.todaySeconds === 'number' ? parsed.goals.todaySeconds : (parsed.goals.todayMinutes || 0) * 60;
+            const lSec = typeof state.goals.todaySeconds === 'number' ? state.goals.todaySeconds : (state.goals.todayMinutes || 0) * 60;
+            state.goals.todaySeconds = Math.max(lSec, pSec);
+            state.goals.todayMinutes = Math.floor(state.goals.todaySeconds / 60);
+            state.goals.todayDate = today;
+          }
+          if ((parsed.goals.updatedAt || 0) >= (state.goals.updatedAt || 0) && parsed.goals.dailyMinutes) {
+            state.goals.dailyMinutes = parsed.goals.dailyMinutes;
+          }
+          state.goals.streakDays = Math.max(state.goals.streakDays || 1, parsed.goals.streakDays || 1);
+          if (parsed.goals.goalReachedDate === today) state.goals.goalReachedDate = today;
         }
         if (typeof parsed.appDark === 'boolean') state.appDark = parsed.appDark;
         if (Array.isArray(parsed.collections)) {
@@ -1144,11 +1165,15 @@
           });
         }
 
-        // Reset daily minutes if date changed
+        // Reset daily reading clock if date changed
         const today = new Date().toISOString().slice(0, 10);
         if (state.goals.todayDate !== today) {
           state.goals.todayDate = today;
           state.goals.todayMinutes = 0;
+          state.goals.todaySeconds = 0;
+        }
+        if (typeof state.goals.todaySeconds !== 'number') {
+          state.goals.todaySeconds = (state.goals.todayMinutes || 0) * 60;
         }
       }
 
@@ -1160,10 +1185,13 @@
         return {
           appDark: state.appDark,
           collections: state.collections,
+          bookOrder: state.bookOrder || [],
+          bookOrderUpdatedAt: state.bookOrderUpdatedAt || 0,
           progress: state.progress,
           bookmarks: state.bookmarks,
           highlights: state.highlights,
           goals: state.goals,
+          appDark: !!state.appDark,
           readerSettings: state.readerSettings,
           libraryVersion: state.libraryVersion || 0,
           deletedBookIds: state.deletedBookIds || [],
@@ -1285,8 +1313,27 @@
                   state.bookmarks[bid] = list;
                 });
               }
-              if (remote.goals && (remote.goals.todayMinutes || 0) > (state.goals.todayMinutes || 0)) {
-                state.goals.todayMinutes = remote.goals.todayMinutes;
+              if (Array.isArray(remote.bookOrder) && (remote.bookOrderUpdatedAt || 0) > (state.bookOrderUpdatedAt || 0)) {
+                state.bookOrder = remote.bookOrder;
+                state.bookOrderUpdatedAt = remote.bookOrderUpdatedAt;
+                changedBooks = true;
+              }
+              if (remote.goals) {
+                const today = new Date().toISOString().slice(0, 10);
+                if (remote.goals.todayDate === today) {
+                  const rSec = typeof remote.goals.todaySeconds === 'number' ? remote.goals.todaySeconds : (remote.goals.todayMinutes || 0) * 60;
+                  if (rSec > (state.goals.todaySeconds || 0)) {
+                    state.goals.todaySeconds = rSec;
+                    state.goals.todayMinutes = Math.floor(rSec / 60);
+                    state.goals.todayDate = today;
+                  }
+                }
+                if ((remote.goals.updatedAt || 0) > (state.goals.updatedAt || 0) && remote.goals.dailyMinutes) {
+                  state.goals.dailyMinutes = remote.goals.dailyMinutes;
+                }
+                if ((remote.goals.streakDays || 0) > (state.goals.streakDays || 0)) {
+                  state.goals.streakDays = remote.goals.streakDays;
+                }
               }
             }
           }
@@ -1493,8 +1540,26 @@
               if (track) track.dataset.renderedKey = '';
               renderReaderContent();
             }
-            if (remote.goals && (remote.goals.todayMinutes || 0) > (state.goals.todayMinutes || 0)) {
-              state.goals.todayMinutes = remote.goals.todayMinutes;
+            if (Array.isArray(remote.bookOrder) && (remote.bookOrderUpdatedAt || 0) > (state.bookOrderUpdatedAt || 0)) {
+              state.bookOrder = remote.bookOrder;
+              state.bookOrderUpdatedAt = remote.bookOrderUpdatedAt;
+            }
+            if (remote.goals) {
+              const today = new Date().toISOString().slice(0, 10);
+              if (remote.goals.todayDate === today) {
+                const rSec = typeof remote.goals.todaySeconds === 'number' ? remote.goals.todaySeconds : (remote.goals.todayMinutes || 0) * 60;
+                if (rSec > (state.goals.todaySeconds || 0)) {
+                  state.goals.todaySeconds = rSec;
+                  state.goals.todayMinutes = Math.floor(rSec / 60);
+                  state.goals.todayDate = today;
+                }
+              }
+              if ((remote.goals.updatedAt || 0) > (state.goals.updatedAt || 0) && remote.goals.dailyMinutes) {
+                state.goals.dailyMinutes = remote.goals.dailyMinutes;
+              }
+              if ((remote.goals.streakDays || 0) > (state.goals.streakDays || 0)) {
+                state.goals.streakDays = remote.goals.streakDays;
+              }
             }
             let booksAdded = false;
             if (Array.isArray(remote.deletedBookIds) && remote.deletedBookIds.length) {
@@ -1595,6 +1660,39 @@
         return state.books.find(b => b.id === id);
       }
 
+      function ensureBookOrder() {
+        const ids = state.books.map(b => b.id);
+        const cur = (state.bookOrder || []).filter(id => ids.includes(id));
+        ids.forEach(id => { if (!cur.includes(id)) cur.push(id); });
+        state.bookOrder = cur;
+        return cur;
+      }
+
+      function sortByCustomOrder(books) {
+        const order = ensureBookOrder();
+        const idxMap = new Map(order.map((id, i) => [id, i]));
+        return [...books].sort((a, b) => (idxMap.get(a.id) ?? 9999) - (idxMap.get(b.id) ?? 9999));
+      }
+
+      function reorderBook(bookId, action, targetBookId = null) {
+        const order = ensureBookOrder();
+        const idx = order.indexOf(bookId);
+        if (idx < 0) return;
+        order.splice(idx, 1);
+        if (action === 'top') order.unshift(bookId);
+        else if (action === 'up') order.splice(Math.max(0, idx - 1), 0, bookId);
+        else if (action === 'down') order.splice(Math.min(order.length, idx + 1), 0, bookId);
+        else if (action === 'before' && targetBookId) {
+          const tIdx = order.indexOf(targetBookId);
+          order.splice(tIdx >= 0 ? tIdx : 0, 0, bookId);
+        }
+        state.bookOrder = order;
+        state.bookOrderUpdatedAt = Date.now();
+        state.librarySort = 'custom';
+        saveState();
+        renderAll();
+      }
+
       function getBookProgress(id) {
         return state.progress[id] || { chapterIdx: 0, pageIdx: 0, scrollRatio: 0, percent: 0, updatedAt: 0 };
       }
@@ -1693,7 +1791,7 @@
             : `<span title="Not started" class="inline-flex items-center gap-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide" style="color: var(--accent);">New</span>`;
 
         return `
-          <div class="book-card group flex flex-col cursor-pointer" data-open-book="${escapeHtml(book.id)}">
+          <div class="book-card group flex flex-col cursor-pointer" draggable="true" data-drag-book="${escapeHtml(book.id)}" data-open-book="${escapeHtml(book.id)}">
             <div class="book-cover-wrap mb-2">
               <img src="${book.cover}" alt="${escapeHtml(book.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover" />
               ${pct > 0 && pct < 100 ? `
@@ -1731,15 +1829,17 @@
           const heroProg = heroBook ? getBookProgress(heroBook.id) : null;
           const heroChapter = heroBook ? (heroBook.chapters[heroProg.chapterIdx] || heroBook.chapters[0]) : null;
 
-          const goalPct = Math.min(100, Math.round((state.goals.todayMinutes / Math.max(1, state.goals.dailyMinutes)) * 100));
+          const todaySec = typeof state.goals.todaySeconds === 'number' ? state.goals.todaySeconds : (state.goals.todayMinutes || 0) * 60;
+          const goalPct = Math.min(100, Math.round((todaySec / Math.max(60, state.goals.dailyMinutes * 60)) * 100));
           const radius = 36;
           const circumference = 2 * Math.PI * radius;
           const dashOffset = circumference - (goalPct / 100) * circumference;
           const finishedCount = state.books.filter(b => b.status === 'finished').length;
 
+          const orderedAll = state.bookOrder && state.bookOrder.length ? sortByCustomOrder(state.books) : state.books;
           const filteredBooks = q
-            ? state.books.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q))
-            : state.books;
+            ? orderedAll.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q))
+            : orderedAll;
 
           container.innerHTML = `
             <div class="max-w-5xl mx-auto space-y-8">
@@ -1805,7 +1905,7 @@
                         </defs>
                       </svg>
                       <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-xl font-bold leading-none">${state.goals.todayMinutes}m</span>
+                        <span class="text-lg font-bold leading-none">${formatReadingClock(todaySec)}</span>
                         <span class="text-[10px] mt-0.5" style="color: var(--text-secondary);">of ${state.goals.dailyMinutes}m</span>
                       </div>
                     </div>
@@ -1923,7 +2023,8 @@
             books = books.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q));
           }
 
-          if (state.librarySort === 'title') books.sort((a, b) => a.title.localeCompare(b.title));
+          if (state.librarySort === 'custom') books = sortByCustomOrder(books);
+          else if (state.librarySort === 'title') books.sort((a, b) => a.title.localeCompare(b.title));
           else if (state.librarySort === 'author') books.sort((a, b) => a.author.localeCompare(b.author));
           else if (state.librarySort === 'progress') books.sort((a, b) => (getBookProgress(b.id).percent || 0) - (getBookProgress(a.id).percent || 0));
           else books.sort((a, b) => (b.lastOpenedAt || b.addedAt || 0) - (a.lastOpenedAt || a.addedAt || 0));
@@ -1934,6 +2035,7 @@
                 <div class="text-xs font-medium" style="color: var(--text-secondary);">${books.length} ${books.length === 1 ? 'book' : 'books'}</div>
                 <div class="flex items-center gap-2">
                   <select id="librarySortSelect" class="px-3 py-1.5 rounded-lg border text-xs bg-transparent" style="border-color: var(--border-subtle);">
+                    <option value="custom" ${state.librarySort === 'custom' ? 'selected' : ''}>Sort: Custom Order</option>
                     <option value="recent" ${state.librarySort === 'recent' ? 'selected' : ''}>Sort: Recent</option>
                     <option value="title" ${state.librarySort === 'title' ? 'selected' : ''}>Sort: Title</option>
                     <option value="author" ${state.librarySort === 'author' ? 'selected' : ''}>Sort: Author</option>
@@ -1977,6 +2079,23 @@
             openBookMenu(btn.dataset.bookMenu);
           };
         });
+        let draggedBookId = null;
+        container.querySelectorAll('[data-drag-book]').forEach(card => {
+          card.ondragstart = (e) => {
+            draggedBookId = card.dataset.dragBook;
+            card.style.opacity = '0.5';
+            try { e.dataTransfer.setData('text/plain', draggedBookId); } catch (err) {}
+          };
+          card.ondragend = () => { card.style.opacity = ''; draggedBookId = null; };
+          card.ondragover = (e) => { if (draggedBookId && draggedBookId !== card.dataset.dragBook) e.preventDefault(); };
+          card.ondrop = (e) => {
+            if (!draggedBookId || draggedBookId === card.dataset.dragBook) return;
+            e.preventDefault();
+            e.stopPropagation();
+            reorderBook(draggedBookId, 'before', card.dataset.dragBook);
+            showToast('Book order updated & synced', 'success');
+          };
+        });
 
         lucide.createIcons();
       }
@@ -2007,6 +2126,17 @@
           <button id="bmReadBtn" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-black/5">
             <i data-lucide="book-open" class="w-4 h-4"></i><span>Open Book</span>
           </button>
+          <div class="grid grid-cols-3 gap-1.5 pb-1">
+            <button id="bmMoveTopBtn" class="flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-medium border hover:bg-black/5" style="border-color: var(--border-subtle);">
+              <i data-lucide="arrow-up-to-line" class="w-3.5 h-3.5"></i><span>Top</span>
+            </button>
+            <button id="bmMoveUpBtn" class="flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-medium border hover:bg-black/5" style="border-color: var(--border-subtle);">
+              <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i><span>Earlier</span>
+            </button>
+            <button id="bmMoveDownBtn" class="flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-medium border hover:bg-black/5" style="border-color: var(--border-subtle);">
+              <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i><span>Later</span>
+            </button>
+          </div>
           <button id="bmWantBtn" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm hover:bg-black/5">
             <i data-lucide="bookmark" class="w-4 h-4"></i><span>${book.status === 'want' ? 'Remove from Want to Read' : 'Add to Want to Read'}</span>
           </button>
@@ -2025,6 +2155,9 @@
         `;
 
         document.getElementById('bmReadBtn').onclick = () => { closeModal('bookMenuModal'); openBook(bookId); };
+        document.getElementById('bmMoveTopBtn').onclick = () => { reorderBook(bookId, 'top'); closeModal('bookMenuModal'); showToast('Moved book to top', 'success'); };
+        document.getElementById('bmMoveUpBtn').onclick = () => { reorderBook(bookId, 'up'); closeModal('bookMenuModal'); };
+        document.getElementById('bmMoveDownBtn').onclick = () => { reorderBook(bookId, 'down'); closeModal('bookMenuModal'); };
         document.getElementById('bmWantBtn').onclick = () => {
           book.status = book.status === 'want' ? 'reading' : 'want';
           saveState(); renderAll(); closeModal('bookMenuModal');
@@ -2404,22 +2537,37 @@
         }
       }
 
-      // Reading Goals Live Timer (low-wakeup 15s tick, pauses when backgrounded)
+      function formatReadingClock(totalSec) {
+        const s = Math.max(0, Math.floor(totalSec || 0));
+        const mins = Math.floor(s / 60);
+        const secs = s % 60;
+        if (mins === 0) return `${secs}s`;
+        if (secs === 0 || mins >= 10) return `${mins}m`;
+        return `${mins}m ${secs}s`;
+      }
+
+      // Real Reading Goals Live Timer (ticks every 5s, preserves exact seconds, syncs across all 3 devices!)
       function startReadingTimer() {
         stopReadingTimer();
-        readingSecondsAccum = 0;
         readingTimerInterval = setInterval(() => {
-          if (document.visibilityState !== 'visible') return;
-          readingSecondsAccum += 15;
-          if (readingSecondsAccum >= 60) {
-            readingSecondsAccum = 0;
-            state.goals.todayMinutes += 1;
-            saveState();
-            if (state.goals.todayMinutes === state.goals.dailyMinutes) {
-              showToast('Daily reading goal reached!', 'success');
-            }
+          if (document.visibilityState !== 'visible' || !currentBookId) return;
+          const today = new Date().toISOString().slice(0, 10);
+          if (state.goals.todayDate !== today) {
+            state.goals.todayDate = today;
+            state.goals.todaySeconds = 0;
+            state.goals.todayMinutes = 0;
           }
-        }, 15000);
+          state.goals.todaySeconds = (state.goals.todaySeconds || 0) + 5;
+          state.goals.todayMinutes = Math.floor(state.goals.todaySeconds / 60);
+          state.goals.updatedAt = Date.now();
+
+          if (state.goals.todayMinutes >= state.goals.dailyMinutes && state.goals.goalReachedDate !== today) {
+            state.goals.goalReachedDate = today;
+            state.goals.streakDays = (state.goals.streakDays || 0) + 1;
+            showToast('Daily reading goal reached! Streak +1', 'success');
+          }
+          saveState();
+        }, 5000);
       }
 
       function stopReadingTimer() {
@@ -3026,6 +3174,8 @@
           highlights: state.highlights,
           goals: state.goals,
           collections: state.collections,
+          bookOrder: state.bookOrder || [],
+          bookOrderUpdatedAt: state.bookOrderUpdatedAt || 0,
           readerSettings: state.readerSettings
         };
         // Include uploaded books directly in cloud sync (Firebase) when not using Wi-Fi /api/books
@@ -3195,6 +3345,7 @@
         };
         document.getElementById('saveGoalBtn').onclick = () => {
           state.goals.dailyMinutes = Number(document.getElementById('goalRangeInput').value) || 15;
+          state.goals.updatedAt = Date.now();
           saveState();
           closeModal('goalModal');
           renderMainView();
@@ -3586,8 +3737,9 @@
         });
       }
 
-      // Init
+      // Init (apply saved Dark Mode immediately so there is zero white flash)
       loadState();
+      applyAppDarkMode();
       wireEvents();
       renderAll();
       idbLoad().then(saved => {

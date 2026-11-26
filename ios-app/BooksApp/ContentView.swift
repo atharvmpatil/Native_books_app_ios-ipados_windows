@@ -19,8 +19,8 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showWifiPrompt = false
     @State private var urlDraft = ""
-    @State private var themeBgHex = "#f5f5f7"
-    @State private var isDarkTheme = false
+    @AppStorage("savedThemeBgHex") private var themeBgHex: String = "#000000"
+    @AppStorage("savedIsDarkTheme") private var isDarkTheme: Bool = true
     @State private var syncPulse = 0
 
     var body: some View {
