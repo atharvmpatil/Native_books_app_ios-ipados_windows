@@ -1124,8 +1124,10 @@
       // Safe storage loader (checks localStorage synchronously, then upgrades from IndexedDB / native iOS disk)
       function loadState() {
         try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) applyParsedState(JSON.parse(raw));
+          const rawLegacy = localStorage.getItem(STORAGE_KEY);
+          if (rawLegacy) applyParsedState(JSON.parse(rawLegacy));
+          const rawMeta = localStorage.getItem(META_STORAGE_KEY);
+          if (rawMeta) applyParsedState(JSON.parse(rawMeta));
         } catch (e) { /* sandbox storage fallback */ }
 
         if (!state.books || state.books.length === 0) {
@@ -1150,27 +1152,171 @@
         }
       }
 
-      let nativeSaveTimer = null;
-      function saveState(skipCloudPush = false) {
-        // 1. Save full library (including large uploaded EPUBs/PDFs) to IndexedDB
+      const META_STORAGE_KEY = STORAGE_KEY + '_meta';
+      let nativeMetaTimer = null;
+      let nativeBooksTimer = null;
+
+      function getMetaSnapshot() {
+        return {
+          appDark: state.appDark,
+          collections: state.collections,
+          progress: state.progress,
+          bookmarks: state.bookmarks,
+          highlights: state.highlights,
+          goals: state.goals,
+          readerSettings: state.readerSettings,
+          libraryVersion: state.libraryVersion || 0,
+          deletedBookIds: state.deletedBookIds || [],
+          deletedHighlightIds: state.deletedHighlightIds || [],
+          lastHighlightColor: state.lastHighlightColor || 'yellow',
+          cloudSync: state.cloudSync
+        };
+      }
+
+      // Save heavy books ONLY when a book is imported, deleted, or synced (zero OOM crash on page turns!)
+      function saveBooksToDisk(skipNativeWifiPush = false) {
         idbSave(state);
-        // 2. Save to Native iOS Documents/ folder if running in the iPhone/iPad app (never vanishes on app close!)
-        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksSave) {
-          clearTimeout(nativeSaveTimer);
-          nativeSaveTimer = setTimeout(() => {
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksSaveLibrary) {
+          clearTimeout(nativeBooksTimer);
+          nativeBooksTimer = setTimeout(() => {
             try {
-              window.webkit.messageHandlers.booksSave.postMessage(JSON.stringify(state));
+              window.webkit.messageHandlers.booksSaveLibrary.postMessage(JSON.stringify({
+                libraryVersion: state.libraryVersion || Date.now(),
+                books: getUploadedBooks(),
+                deletedBookIds: state.deletedBookIds || [],
+                skipWifiPush: !!skipNativeWifiPush
+              }));
             } catch (e) {}
-          }, 150);
+          }, 120);
         }
-        // 3. Also mirror to localStorage when it fits
+      }
+
+      // Lightweight meta save (~5KB) on every page turn / highlight / bookmark — instant, zero RAM spike!
+      function saveState(skipCloudPush = false) {
+        const meta = getMetaSnapshot();
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        } catch (e) { /* large libraries live safely in IndexedDB & native Documents/ */ }
+          localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
+        } catch (e) {}
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksSaveMeta) {
+          clearTimeout(nativeMetaTimer);
+          nativeMetaTimer = setTimeout(() => {
+            try {
+              window.webkit.messageHandlers.booksSaveMeta.postMessage(JSON.stringify({
+                meta: meta,
+                skipWifiPush: !!skipCloudPush
+              }));
+            } catch (e) {}
+          }, 120);
+        }
         if (!skipCloudPush && (wifiSyncActive || (state.cloudSync && state.cloudSync.enabled))) {
           scheduleCloudPush();
         }
       }
+
+      // Native iOS Silent Background Wi-Fi Sync Callbacks (called by Swift NWPathMonitor + URLSession)
+      window.__onNativeWifiStatus = function(statusObj) {
+        try {
+          if (!statusObj) return;
+          if (statusObj.connected) {
+            wifiSyncActive = true;
+            cloudSyncState = 'live';
+            state.cloudSync.lastSyncedAt = Date.now();
+          } else {
+            wifiSyncActive = false;
+            cloudSyncState = state.cloudSync && state.cloudSync.enabled ? cloudSyncState : 'local';
+          }
+          updateSyncIndicators();
+        } catch (e) {}
+      };
+
+      window.__applyNativeWifiSync = function(remoteMetaStr, remoteBooksStr) {
+        try {
+          let changedBooks = false;
+          let changedReader = false;
+          if (remoteMetaStr) {
+            const remote = typeof remoteMetaStr === 'string' ? JSON.parse(remoteMetaStr) : remoteMetaStr;
+            if (remote && typeof remote === 'object') {
+              if (Array.isArray(remote.deletedBookIds) && applyDeletedBooks(remote.deletedBookIds)) changedBooks = true;
+              if (Array.isArray(remote.deletedHighlightIds)) {
+                state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), ...remote.deletedHighlightIds]));
+                const delH = new Set(state.deletedHighlightIds);
+                state.highlights = state.highlights.filter(h => !delH.has(h.id));
+              }
+              if (remote.progress) {
+                Object.keys(remote.progress).forEach(bid => {
+                  const rP = remote.progress[bid];
+                  const lP = state.progress[bid];
+                  if (rP && (!lP || (rP.updatedAt || 0) > (lP.updatedAt || 0))) {
+                    state.progress[bid] = rP;
+                    if (currentBookId === bid) {
+                      const bObj = getBook(bid);
+                      const maxCh = bObj && bObj.chapters ? bObj.chapters.length - 1 : 0;
+                      const nextCh = Math.max(0, Math.min(maxCh, Number(rP.chapterIdx) || 0));
+                      const nextPg = typeof rP.chapterRatio === 'number' && totalColPages > 1
+                        ? Math.round(rP.chapterRatio * (totalColPages - 1))
+                        : (Number(rP.pageIdx) || 0);
+                      if (nextCh !== currentChapterIdx || Math.abs(nextPg - currentPageIdx) >= 1) {
+                        currentChapterIdx = nextCh;
+                        currentPageIdx = Math.max(0, nextPg);
+                        changedReader = true;
+                      }
+                    }
+                  }
+                });
+              }
+              if (Array.isArray(remote.highlights)) {
+                const delH = new Set(state.deletedHighlightIds || []);
+                const byId = new Map(state.highlights.map(h => [h.id, h]));
+                remote.highlights.forEach(h => {
+                  if (!h || !h.id || delH.has(h.id)) return;
+                  const ex = byId.get(h.id);
+                  if (!ex || (h.updatedAt || h.createdAt || 0) > (ex.updatedAt || ex.createdAt || 0)) {
+                    byId.set(h.id, h);
+                    if (currentBookId === h.bookId) changedReader = true;
+                  }
+                });
+                state.highlights = Array.from(byId.values());
+              }
+              if (remote.bookmarks) {
+                Object.keys(remote.bookmarks).forEach(bid => {
+                  const list = state.bookmarks[bid] || [];
+                  const seen = new Set(list.map(x => x.id));
+                  (remote.bookmarks[bid] || []).forEach(bm => { if (bm && bm.id && !seen.has(bm.id)) list.push(bm); });
+                  state.bookmarks[bid] = list;
+                });
+              }
+              if (remote.goals && (remote.goals.todayMinutes || 0) > (state.goals.todayMinutes || 0)) {
+                state.goals.todayMinutes = remote.goals.todayMinutes;
+              }
+            }
+          }
+          if (remoteBooksStr) {
+            const rb = typeof remoteBooksStr === 'string' ? JSON.parse(remoteBooksStr) : remoteBooksStr;
+            if (rb) {
+              if (Array.isArray(rb.deletedBookIds) && applyDeletedBooks(rb.deletedBookIds)) changedBooks = true;
+              if (Array.isArray(rb.books) && mergeRemoteBooks(rb.books)) changedBooks = true;
+              if (rb.libraryVersion && rb.libraryVersion > (state.libraryVersion || 0)) {
+                state.libraryVersion = rb.libraryVersion;
+              }
+            }
+          }
+          saveState(true);
+          if (changedBooks) {
+            saveBooksToDisk(true);
+            renderSidebar();
+            if (!currentBookId) renderMainView();
+            showToast('Library synced automatically over Wi-Fi', 'success');
+          } else if (!currentBookId) {
+            renderMainView();
+          }
+          if (changedReader && currentBookId) {
+            const track = document.getElementById('colTrack');
+            if (track) track.dataset.renderedKey = '';
+            renderReaderContent();
+            showToast('Picked up latest page & notes', 'success');
+          }
+        } catch (e) {}
+      };
 
       let wifiSyncActive = false;
 
@@ -1897,6 +2043,7 @@
           state.deletedBookIds = Array.from(new Set([...(state.deletedBookIds || []), bookId]));
           state.libraryVersion = Date.now();
           saveState();
+          saveBooksToDisk(false);
           pushUploadedBooksToWifi();
           renderAll();
           closeModal('bookMenuModal');
@@ -2564,6 +2711,7 @@
         }
         state.libraryVersion = Date.now();
         saveState();
+        saveBooksToDisk(false);
         pushUploadedBooksToWifi();
         renderAll();
       }
@@ -2594,6 +2742,27 @@
           chapters: chapters.length ? chapters : [{ title, paragraphs: ['(Empty file)'] }]
         });
         showToast(`Added "${title}" to your library`, 'success');
+      }
+
+      function compressCoverImage(dataUri) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const maxW = 420, maxH = 560;
+              let w = img.width || maxW, h = img.height || maxH;
+              const ratio = Math.min(1, maxW / w, maxH / h);
+              w = Math.max(1, Math.round(w * ratio));
+              h = Math.max(1, Math.round(h * ratio));
+              const c = document.createElement('canvas');
+              c.width = w; c.height = h;
+              c.getContext('2d').drawImage(img, 0, 0, w, h);
+              resolve(c.toDataURL('image/jpeg', 0.8));
+            } catch (e) { resolve(dataUri); }
+          };
+          img.onerror = () => resolve(dataUri);
+          img.src = dataUri;
+        });
       }
 
       function extUpper(name) {
@@ -2638,7 +2807,8 @@
           const coverZipFile = zip.file(opfDir + decodeURIComponent(coverItem.href));
           if (coverZipFile) {
             const b64 = await coverZipFile.async('base64');
-            coverUrl = `data:${coverItem.mediaType || 'image/jpeg'};base64,${b64}`;
+            const rawUri = `data:${coverItem.mediaType || 'image/jpeg'};base64,${b64}`;
+            coverUrl = await compressCoverImage(rawUri);
           }
         }
 
@@ -3063,7 +3233,14 @@
         document.getElementById('syncTabWifi').onclick = () => setSyncTab('wifi');
         document.getElementById('syncTabCloud').onclick = () => setSyncTab('cloud');
         document.getElementById('syncTabOffline').onclick = () => setSyncTab('offline');
-        document.getElementById('wifiSyncNowBtn').onclick = () => pullFromCloud(false);
+        document.getElementById('wifiSyncNowBtn').onclick = () => {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksBridge) {
+            window.webkit.messageHandlers.booksBridge.postMessage('triggerWifiSync');
+            showToast('Syncing with Windows PC...');
+          } else {
+            pullFromCloud(false);
+          }
+        };
         const iosBridgeBtn = document.getElementById('nativeIosWifiBtn');
         if (iosBridgeBtn) {
           if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksBridge) {
