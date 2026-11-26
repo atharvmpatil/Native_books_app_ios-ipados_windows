@@ -102,17 +102,52 @@
     }
 
     .reader-prose p {
-      margin-bottom: 1.05em;
-      text-indent: 1.35em;
+      margin-bottom: 0.92em;
+      text-indent: 1.25em;
+      orphans: 2;
+      widows: 2;
     }
     .reader-prose p:first-of-type {
       text-indent: 0;
     }
     .reader-prose h2 {
       font-weight: 600;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.9em;
+      letter-spacing: -0.025em;
+      padding-top: 0.9em;
+      margin-bottom: 1.15em;
+      padding-bottom: 0.55em;
+      border-bottom: 1px solid var(--r-border);
       line-height: 1.25;
+      break-after: avoid;
+    }
+    /* True CSS Multi-Column Pagination (fills 100% of screen height like real Apple Books) */
+    #colViewport {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    #colTrack {
+      height: 100%;
+      column-fill: auto;
+      will-change: transform;
+      transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #colTrack.no-anim {
+      transition: none !important;
+    }
+    .chrome-hidden #readerTopBar {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-100%);
+    }
+    .chrome-hidden #readerFooter {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(100%);
+    }
+    #readerTopBar, #readerFooter {
+      transition: opacity 0.22s ease, transform 0.22s ease;
     }
 
     /* Highlight colors */
@@ -341,35 +376,61 @@
 
   <!-- FULLSCREEN READER VIEW -->
   <div id="readerView" class="fixed inset-0 z-40 hidden flex-col reader-theme-paper">
-    <!-- Reader Top Bar -->
-    <header id="readerTopBar" class="ios-safe-top shrink-0 px-3 sm:px-5 py-2 flex items-center justify-between border-b glass z-20 transition-opacity duration-200"
+    <!-- Subtle Immersive Chapter Header (always visible when toolbars auto-hide, like Apple Books) -->
+    <div id="immersiveHeader" class="shrink-0 pt-2.5 pb-1.5 px-6 text-center text-[11px] tracking-wide font-medium truncate select-none" style="color: var(--r-muted);"></div>
+
+    <!-- Reader Top Bar (Spacious 2-row on iPhone, clean 1-row on iPad/Windows — zero cramping!) -->
+    <header id="readerTopBar" class="absolute top-0 inset-x-0 px-4 sm:px-6 py-2.5 border-b glass z-20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
       style="background: var(--r-panel); border-color: var(--r-border);">
-      <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
-        <button id="closeReaderBtn" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10 transition">
-          <i data-lucide="chevron-left" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">Library</span>
-        </button>
-        <button id="toggleTocBtn" title="Table of Contents & Annotations" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition">
-          <i data-lucide="list" class="w-4 h-4"></i>
-        </button>
+      <div class="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+        <div class="flex items-center gap-1.5">
+          <button id="closeReaderBtn" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            <span>Library</span>
+          </button>
+          <button id="toggleTocBtn" title="Table of Contents & Annotations" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="list" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <div class="flex sm:hidden items-center gap-1">
+          <button id="mobileTtsProxyBtn" title="Read Aloud" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="volume-2" class="w-4 h-4"></i>
+          </button>
+          <button id="mobileSearchProxyBtn" title="Search in Book" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <button id="mobileDarkProxyBtn" title="Toggle Dark Mode" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="moon" class="w-4 h-4"></i>
+          </button>
+          <button id="mobileAaProxyBtn" title="Themes & Settings" class="px-2.5 py-1.5 rounded-xl font-serif font-semibold text-[15px] hover:bg-black/5 dark:hover:bg-white/10 transition">
+            Aa
+          </button>
+          <button id="mobileBookmarkProxyBtn" title="Bookmark Page" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="bookmark" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
 
-      <div class="text-center min-w-0 px-2">
-        <div id="readerBookTitle" class="text-[13px] font-semibold truncate"></div>
-        <div id="readerChapterLabel" class="text-[11px] truncate" style="color: var(--r-muted);"></div>
+      <div class="text-center min-w-0 px-2 pb-0.5 sm:pb-0 sm:flex-1">
+        <div id="readerBookTitle" class="text-[14px] font-semibold leading-tight truncate"></div>
+        <div id="readerChapterLabel" class="text-[11px] mt-0.5 truncate" style="color: var(--r-muted);"></div>
       </div>
 
-      <div class="flex items-center gap-1 sm:gap-1.5 relative">
-        <button id="ttsToggleBtn" title="Read Aloud" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition">
+      <div class="hidden sm:flex items-center gap-1.5 relative">
+        <button id="ttsToggleBtn" title="Read Aloud" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="volume-2" class="w-4 h-4"></i>
         </button>
-        <button id="toggleSearchInBookBtn" title="Search in Book" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition">
+        <button id="toggleSearchInBookBtn" title="Search in Book" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="search" class="w-4 h-4"></i>
         </button>
-        <button id="toggleAaBtn" title="Themes & Settings" class="px-2.5 py-1.5 rounded-lg font-serif font-semibold text-[15px] hover:bg-black/5 dark:hover:bg-white/10 transition">
+        <button id="readerDarkToggleBtn" title="Toggle Reader Dark Mode" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+          <i data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+        <button id="toggleAaBtn" title="Themes & Settings" class="px-2.5 py-1.5 rounded-xl font-serif font-semibold text-[15px] hover:bg-black/5 dark:hover:bg-white/10 transition">
           Aa
         </button>
-        <button id="toggleBookmarkBtn" title="Bookmark Page" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition">
+        <button id="toggleBookmarkBtn" title="Bookmark Page" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="bookmark" class="w-4 h-4"></i>
         </button>
       </div>
@@ -523,17 +584,18 @@
       </div>
 
       <!-- Reader Stage -->
-      <div id="readerStage" class="flex-1 relative flex items-center justify-center overflow-hidden px-4 sm:px-10 py-4 sm:py-6">
-        <!-- Prev / Next Click Buttons (Paginated mode) -->
-        <button id="prevPageBtn" title="Previous Page (Left Arrow)" class="hidden sm:flex items-center justify-center w-10 h-20 rounded-2xl absolute left-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
+      <div id="readerStage" class="flex-1 relative flex items-center justify-center overflow-hidden px-6 sm:px-12 py-2.5 sm:py-4">
+        <!-- Prev / Next Click Buttons (Desktop only; tap edges or swipe on iPhone/iPad) -->
+        <button id="prevPageBtn" title="Previous Page (Left Arrow)" class="hidden lg:flex items-center justify-center w-10 h-20 rounded-2xl absolute left-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="chevron-left" class="w-6 h-6"></i>
         </button>
 
-        <!-- Paginated Book Spread Container -->
-        <div id="paginatedContainer" class="w-full h-full max-w-5xl flex items-stretch justify-center gap-8 sm:gap-12 select-text">
-          <div id="pageLeft" class="flex-1 min-w-0 overflow-hidden reader-prose"></div>
-          <div id="pageSpine" class="hidden lg:block w-px self-stretch my-2" style="background: linear-gradient(180deg, transparent, var(--r-spine) 15%, var(--r-spine) 85%, transparent);"></div>
-          <div id="pageRight" class="hidden lg:block flex-1 min-w-0 overflow-hidden reader-prose"></div>
+        <!-- True CSS Multi-Column Paginated Container (100% full-height pages!) -->
+        <div id="paginatedContainer" class="w-full h-full max-w-5xl relative select-text">
+          <div id="pageSpine" class="hidden lg:block pointer-events-none absolute top-2 bottom-2 left-1/2 w-px -translate-x-1/2 z-10" style="background: linear-gradient(180deg, transparent, var(--r-spine) 15%, var(--r-spine) 85%, transparent);"></div>
+          <div id="colViewport">
+            <div id="colTrack" class="reader-prose"></div>
+          </div>
         </div>
 
         <!-- Vertical Scroll Container -->
@@ -541,14 +603,17 @@
           <div id="scrollContent" class="max-w-2xl mx-auto py-4 reader-prose"></div>
         </div>
 
-        <button id="nextPageBtn" title="Next Page (Right Arrow)" class="hidden sm:flex items-center justify-center w-10 h-20 rounded-2xl absolute right-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
+        <button id="nextPageBtn" title="Next Page (Right Arrow)" class="hidden lg:flex items-center justify-center w-10 h-20 rounded-2xl absolute right-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="chevron-right" class="w-6 h-6"></i>
         </button>
       </div>
     </div>
 
-    <!-- Reader Bottom Scrubber Bar -->
-    <footer class="ios-safe-bottom shrink-0 pt-2.5 sm:px-8 border-t glass z-20" style="background: var(--r-panel); border-color: var(--r-border);">
+    <!-- Subtle Immersive Page Number Footer (always visible like Apple Books) -->
+    <div id="immersiveFooter" class="shrink-0 pt-1 px-6 text-center text-[11px] font-medium select-none" style="padding-bottom: max(0.55rem, env(safe-area-inset-bottom)); color: var(--r-muted);"></div>
+
+    <!-- Reader Bottom Scrubber Bar (Floating Overlay — tap center to toggle) -->
+    <footer id="readerFooter" class="ios-safe-bottom absolute bottom-0 inset-x-0 pt-2.5 sm:px-8 border-t glass z-20" style="background: var(--r-panel); border-color: var(--r-border);">
       <div class="max-w-4xl mx-auto flex flex-col gap-1.5">
         <div class="flex items-center gap-3">
           <button id="mobilePrevBtn" class="sm:hidden p-1.5 rounded-lg hover:bg-black/5"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
@@ -882,11 +947,16 @@
         progress: {}, // { [bookId]: { chapterIdx, pageIdx, scrollRatio, percent, updatedAt } }
         bookmarks: {}, // { [bookId]: [{ id, chapterIdx, pageIdx, label, createdAt }] }
         highlights: [], // [{ id, bookId, chapterIdx, text, color, note, createdAt }]
+        bookOrder: [],
+        bookOrderUpdatedAt: 0,
         goals: {
           dailyMinutes: 15,
-          todayMinutes: 6,
+          todayMinutes: 0,
+          todaySeconds: 0,
           todayDate: new Date().toISOString().slice(0, 10),
-          streakDays: 3
+          goalReachedDate: '',
+          streakDays: 1,
+          updatedAt: 0
         },
         readerSettings: {
           theme: 'paper',
@@ -900,6 +970,8 @@
         },
         libraryVersion: 0,
         deletedBookIds: [],
+        deletedHighlightIds: [],
+        lastHighlightColor: 'yellow',
         cloudSync: {
           enabled: false,
           dbUrl: '',
@@ -972,14 +1044,97 @@
         state.cloudSync = Object.assign({}, state.cloudSync, parsed.cloudSync || {});
       }
 
-      // Exposed for native iOS Swift Documents/ disk loader
+      function mergeStateSafely(parsed) {
+        if (!parsed || typeof parsed !== 'object') return;
+        // Merge deleted tombstones first
+        if (Array.isArray(parsed.deletedBookIds)) {
+          state.deletedBookIds = Array.from(new Set([...(state.deletedBookIds || []), ...parsed.deletedBookIds]));
+        }
+        if (Array.isArray(parsed.deletedHighlightIds)) {
+          state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), ...parsed.deletedHighlightIds]));
+        }
+        const delBooks = new Set(state.deletedBookIds || []);
+        const delHls = new Set(state.deletedHighlightIds || []);
+
+        // Merge books without dropping newly synced/uploaded books
+        if (Array.isArray(parsed.books)) {
+          const existingIds = new Set(state.books.map(b => b.id));
+          parsed.books.forEach(b => {
+            if (b && b.id && !delBooks.has(b.id) && Array.isArray(b.chapters) && b.chapters.length > 0 && !existingIds.has(b.id)) {
+              state.books.unshift(b);
+              existingIds.add(b.id);
+            }
+          });
+          state.books = state.books.filter(b => !delBooks.has(b.id));
+        }
+
+        // Merge progress keeping newest updatedAt per book
+        if (parsed.progress && typeof parsed.progress === 'object') {
+          Object.keys(parsed.progress).forEach(bid => {
+            const p = parsed.progress[bid];
+            const cur = state.progress[bid];
+            if (p && (!cur || (p.updatedAt || 0) > (cur.updatedAt || 0))) {
+              state.progress[bid] = p;
+            }
+          });
+        }
+
+        // Merge highlights & bookmarks without losing any
+        if (Array.isArray(parsed.highlights)) {
+          const seen = new Set(state.highlights.map(h => h.id));
+          parsed.highlights.forEach(h => {
+            if (h && h.id && !delHls.has(h.id) && !seen.has(h.id)) {
+              state.highlights.push(h);
+              seen.add(h.id);
+            }
+          });
+          state.highlights = state.highlights.filter(h => !delHls.has(h.id));
+        }
+        if (parsed.bookmarks && typeof parsed.bookmarks === 'object') {
+          Object.keys(parsed.bookmarks).forEach(bid => {
+            const list = state.bookmarks[bid] || [];
+            const seen = new Set(list.map(x => x.id));
+            (parsed.bookmarks[bid] || []).forEach(bm => {
+              if (bm && bm.id && !seen.has(bm.id)) { list.push(bm); seen.add(bm.id); }
+            });
+            state.bookmarks[bid] = list;
+          });
+        }
+        if (parsed.readerSettings) state.readerSettings = Object.assign({}, state.readerSettings, parsed.readerSettings);
+        if (Array.isArray(parsed.bookOrder) && (parsed.bookOrderUpdatedAt || 0) >= (state.bookOrderUpdatedAt || 0)) {
+          state.bookOrder = parsed.bookOrder;
+          state.bookOrderUpdatedAt = parsed.bookOrderUpdatedAt || 0;
+        }
+        if (parsed.goals) {
+          const today = new Date().toISOString().slice(0, 10);
+          if (parsed.goals.todayDate === today) {
+            const pSec = typeof parsed.goals.todaySeconds === 'number' ? parsed.goals.todaySeconds : (parsed.goals.todayMinutes || 0) * 60;
+            const lSec = typeof state.goals.todaySeconds === 'number' ? state.goals.todaySeconds : (state.goals.todayMinutes || 0) * 60;
+            state.goals.todaySeconds = Math.max(lSec, pSec);
+            state.goals.todayMinutes = Math.floor(state.goals.todaySeconds / 60);
+            state.goals.todayDate = today;
+          }
+          if ((parsed.goals.updatedAt || 0) >= (state.goals.updatedAt || 0) && parsed.goals.dailyMinutes) {
+            state.goals.dailyMinutes = parsed.goals.dailyMinutes;
+          }
+          state.goals.streakDays = Math.max(state.goals.streakDays || 1, parsed.goals.streakDays || 1);
+          if (parsed.goals.goalReachedDate === today) state.goals.goalReachedDate = today;
+        }
+        if (typeof parsed.appDark === 'boolean') state.appDark = parsed.appDark;
+        if (Array.isArray(parsed.collections)) {
+          state.collections = Array.from(new Set([...(state.collections || []), ...parsed.collections]));
+        }
+      }
+
+      // Exposed for native iOS Swift Documents/ disk loader (merges safely, never crashes an open book!)
       window.__hydrateNativeBooksState = function(jsonStr) {
         try {
           if (!jsonStr) return;
           const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
-          applyParsedState(parsed);
+          mergeStateSafely(parsed);
           ensureDefaultBooks();
-          renderAll();
+          if (!currentBookId) renderAll();
+          else renderReaderContent();
         } catch (e) {}
       };
 
@@ -990,8 +1145,10 @@
       // Safe storage loader (checks localStorage synchronously, then upgrades from IndexedDB / native iOS disk)
       function loadState() {
         try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) applyParsedState(JSON.parse(raw));
+          const rawLegacy = localStorage.getItem(STORAGE_KEY);
+          if (rawLegacy) applyParsedState(JSON.parse(rawLegacy));
+          const rawMeta = localStorage.getItem(META_STORAGE_KEY);
+          if (rawMeta) applyParsedState(JSON.parse(rawMeta));
         } catch (e) { /* sandbox storage fallback */ }
 
         if (!state.books || state.books.length === 0) {
@@ -1008,35 +1165,205 @@
           });
         }
 
-        // Reset daily minutes if date changed
+        // Reset daily reading clock if date changed
         const today = new Date().toISOString().slice(0, 10);
         if (state.goals.todayDate !== today) {
           state.goals.todayDate = today;
           state.goals.todayMinutes = 0;
+          state.goals.todaySeconds = 0;
+        }
+        if (typeof state.goals.todaySeconds !== 'number') {
+          state.goals.todaySeconds = (state.goals.todayMinutes || 0) * 60;
         }
       }
 
-      let nativeSaveTimer = null;
-      function saveState(skipCloudPush = false) {
-        // 1. Save full library (including large uploaded EPUBs/PDFs) to IndexedDB
+      const META_STORAGE_KEY = STORAGE_KEY + '_meta';
+      let nativeMetaTimer = null;
+      let nativeBooksTimer = null;
+
+      function getMetaSnapshot() {
+        return {
+          appDark: state.appDark,
+          collections: state.collections,
+          bookOrder: state.bookOrder || [],
+          bookOrderUpdatedAt: state.bookOrderUpdatedAt || 0,
+          progress: state.progress,
+          bookmarks: state.bookmarks,
+          highlights: state.highlights,
+          goals: state.goals,
+          appDark: !!state.appDark,
+          readerSettings: state.readerSettings,
+          libraryVersion: state.libraryVersion || 0,
+          deletedBookIds: state.deletedBookIds || [],
+          deletedHighlightIds: state.deletedHighlightIds || [],
+          lastHighlightColor: state.lastHighlightColor || 'yellow',
+          cloudSync: state.cloudSync
+        };
+      }
+
+      // Save heavy books ONLY when a book is imported, deleted, or synced (zero OOM crash on page turns!)
+      function saveBooksToDisk(skipNativeWifiPush = false) {
         idbSave(state);
-        // 2. Save to Native iOS Documents/ folder if running in the iPhone/iPad app (never vanishes on app close!)
-        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksSave) {
-          clearTimeout(nativeSaveTimer);
-          nativeSaveTimer = setTimeout(() => {
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksSaveLibrary) {
+          clearTimeout(nativeBooksTimer);
+          nativeBooksTimer = setTimeout(() => {
             try {
-              window.webkit.messageHandlers.booksSave.postMessage(JSON.stringify(state));
+              window.webkit.messageHandlers.booksSaveLibrary.postMessage(JSON.stringify({
+                libraryVersion: state.libraryVersion || Date.now(),
+                books: getUploadedBooks(),
+                deletedBookIds: state.deletedBookIds || [],
+                skipWifiPush: !!skipNativeWifiPush
+              }));
             } catch (e) {}
-          }, 150);
+          }, 120);
         }
-        // 3. Also mirror to localStorage when it fits
+      }
+
+      // Lightweight meta save (~5KB) on every page turn / highlight / bookmark — instant, zero RAM spike!
+      function saveState(skipCloudPush = false) {
+        const meta = getMetaSnapshot();
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        } catch (e) { /* large libraries live safely in IndexedDB & native Documents/ */ }
+          localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
+        } catch (e) {}
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksSaveMeta) {
+          clearTimeout(nativeMetaTimer);
+          nativeMetaTimer = setTimeout(() => {
+            try {
+              window.webkit.messageHandlers.booksSaveMeta.postMessage(JSON.stringify({
+                meta: meta,
+                skipWifiPush: !!skipCloudPush
+              }));
+            } catch (e) {}
+          }, 120);
+        }
         if (!skipCloudPush && (wifiSyncActive || (state.cloudSync && state.cloudSync.enabled))) {
           scheduleCloudPush();
         }
       }
+
+      // Native iOS Silent Background Wi-Fi Sync Callbacks (called by Swift NWPathMonitor + URLSession)
+      window.__onNativeWifiStatus = function(statusObj) {
+        try {
+          if (!statusObj) return;
+          if (statusObj.connected) {
+            wifiSyncActive = true;
+            cloudSyncState = 'live';
+            state.cloudSync.lastSyncedAt = Date.now();
+          } else {
+            wifiSyncActive = false;
+            cloudSyncState = state.cloudSync && state.cloudSync.enabled ? cloudSyncState : 'local';
+          }
+          updateSyncIndicators();
+        } catch (e) {}
+      };
+
+      window.__applyNativeWifiSync = function(remoteMetaStr, remoteBooksStr) {
+        try {
+          let changedBooks = false;
+          let changedReader = false;
+          if (remoteMetaStr) {
+            const remote = typeof remoteMetaStr === 'string' ? JSON.parse(remoteMetaStr) : remoteMetaStr;
+            if (remote && typeof remote === 'object') {
+              if (Array.isArray(remote.deletedBookIds) && applyDeletedBooks(remote.deletedBookIds)) changedBooks = true;
+              if (Array.isArray(remote.deletedHighlightIds)) {
+                state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), ...remote.deletedHighlightIds]));
+                const delH = new Set(state.deletedHighlightIds);
+                state.highlights = state.highlights.filter(h => !delH.has(h.id));
+              }
+              if (remote.progress) {
+                Object.keys(remote.progress).forEach(bid => {
+                  const rP = remote.progress[bid];
+                  const lP = state.progress[bid];
+                  if (rP && (!lP || (rP.updatedAt || 0) > (lP.updatedAt || 0))) {
+                    state.progress[bid] = rP;
+                    if (currentBookId === bid) {
+                      const bObj = getBook(bid);
+                      const maxCh = bObj && bObj.chapters ? bObj.chapters.length - 1 : 0;
+                      const nextCh = Math.max(0, Math.min(maxCh, Number(rP.chapterIdx) || 0));
+                      const nextPg = typeof rP.chapterRatio === 'number' && totalColPages > 1
+                        ? Math.round(rP.chapterRatio * (totalColPages - 1))
+                        : (Number(rP.pageIdx) || 0);
+                      if (nextCh !== currentChapterIdx || Math.abs(nextPg - currentPageIdx) >= 1) {
+                        currentChapterIdx = nextCh;
+                        currentPageIdx = Math.max(0, nextPg);
+                        changedReader = true;
+                      }
+                    }
+                  }
+                });
+              }
+              if (Array.isArray(remote.highlights)) {
+                const delH = new Set(state.deletedHighlightIds || []);
+                const byId = new Map(state.highlights.map(h => [h.id, h]));
+                remote.highlights.forEach(h => {
+                  if (!h || !h.id || delH.has(h.id)) return;
+                  const ex = byId.get(h.id);
+                  if (!ex || (h.updatedAt || h.createdAt || 0) > (ex.updatedAt || ex.createdAt || 0)) {
+                    byId.set(h.id, h);
+                    if (currentBookId === h.bookId) changedReader = true;
+                  }
+                });
+                state.highlights = Array.from(byId.values());
+              }
+              if (remote.bookmarks) {
+                Object.keys(remote.bookmarks).forEach(bid => {
+                  const list = state.bookmarks[bid] || [];
+                  const seen = new Set(list.map(x => x.id));
+                  (remote.bookmarks[bid] || []).forEach(bm => { if (bm && bm.id && !seen.has(bm.id)) list.push(bm); });
+                  state.bookmarks[bid] = list;
+                });
+              }
+              if (Array.isArray(remote.bookOrder) && (remote.bookOrderUpdatedAt || 0) > (state.bookOrderUpdatedAt || 0)) {
+                state.bookOrder = remote.bookOrder;
+                state.bookOrderUpdatedAt = remote.bookOrderUpdatedAt;
+                changedBooks = true;
+              }
+              if (remote.goals) {
+                const today = new Date().toISOString().slice(0, 10);
+                if (remote.goals.todayDate === today) {
+                  const rSec = typeof remote.goals.todaySeconds === 'number' ? remote.goals.todaySeconds : (remote.goals.todayMinutes || 0) * 60;
+                  if (rSec > (state.goals.todaySeconds || 0)) {
+                    state.goals.todaySeconds = rSec;
+                    state.goals.todayMinutes = Math.floor(rSec / 60);
+                    state.goals.todayDate = today;
+                  }
+                }
+                if ((remote.goals.updatedAt || 0) > (state.goals.updatedAt || 0) && remote.goals.dailyMinutes) {
+                  state.goals.dailyMinutes = remote.goals.dailyMinutes;
+                }
+                if ((remote.goals.streakDays || 0) > (state.goals.streakDays || 0)) {
+                  state.goals.streakDays = remote.goals.streakDays;
+                }
+              }
+            }
+          }
+          if (remoteBooksStr) {
+            const rb = typeof remoteBooksStr === 'string' ? JSON.parse(remoteBooksStr) : remoteBooksStr;
+            if (rb) {
+              if (Array.isArray(rb.deletedBookIds) && applyDeletedBooks(rb.deletedBookIds)) changedBooks = true;
+              if (Array.isArray(rb.books) && mergeRemoteBooks(rb.books)) changedBooks = true;
+              if (rb.libraryVersion && rb.libraryVersion > (state.libraryVersion || 0)) {
+                state.libraryVersion = rb.libraryVersion;
+              }
+            }
+          }
+          saveState(true);
+          if (changedBooks) {
+            saveBooksToDisk(true);
+            renderSidebar();
+            if (!currentBookId) renderMainView();
+            showToast('Library synced automatically over Wi-Fi', 'success');
+          } else if (!currentBookId) {
+            renderMainView();
+          }
+          if (changedReader && currentBookId) {
+            const track = document.getElementById('colTrack');
+            if (track) track.dataset.renderedKey = '';
+            renderReaderContent();
+            showToast('Picked up latest page & notes', 'success');
+          }
+        } catch (e) {}
+      };
 
       let wifiSyncActive = false;
 
@@ -1164,10 +1491,18 @@
               const lProg = state.progress[bookId];
               if (!lProg || (rProg.updatedAt || 0) > (lProg.updatedAt || 0)) {
                 state.progress[bookId] = rProg;
-                if (currentBookId === bookId && (rProg.chapterIdx !== currentChapterIdx || rProg.pageIdx !== currentPageIdx)) {
-                  currentChapterIdx = rProg.chapterIdx || 0;
-                  currentPageIdx = rProg.pageIdx || 0;
-                  jumped = true;
+                if (currentBookId === bookId) {
+                  const bObj = getBook(bookId);
+                  const maxCh = bObj && bObj.chapters ? bObj.chapters.length - 1 : 0;
+                  const nextCh = Math.max(0, Math.min(maxCh, Number(rProg.chapterIdx) || 0));
+                  const nextPg = typeof rProg.chapterRatio === 'number' && totalColPages > 1
+                    ? Math.round(rProg.chapterRatio * (totalColPages - 1))
+                    : (Number(rProg.pageIdx) || 0);
+                  if (nextCh !== currentChapterIdx || Math.abs(nextPg - currentPageIdx) >= 1) {
+                    currentChapterIdx = nextCh;
+                    currentPageIdx = Math.max(0, nextPg);
+                    jumped = true;
+                  }
                 }
               }
             });
@@ -1179,12 +1514,52 @@
                 state.bookmarks[bid] = existing;
               });
             }
-            if (Array.isArray(remote.highlights)) {
-              const seenHl = new Set(state.highlights.map(h => h.id));
-              remote.highlights.forEach(h => { if (!seenHl.has(h.id)) state.highlights.push(h); });
+            let hlChanged = false;
+            if (Array.isArray(remote.deletedHighlightIds) && remote.deletedHighlightIds.length) {
+              state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), ...remote.deletedHighlightIds]));
+              const delH = new Set(state.deletedHighlightIds);
+              const beforeH = state.highlights.length;
+              state.highlights = state.highlights.filter(h => !delH.has(h.id));
+              if (state.highlights.length !== beforeH) hlChanged = true;
             }
-            if (remote.goals && (remote.goals.todayMinutes || 0) > (state.goals.todayMinutes || 0)) {
-              state.goals.todayMinutes = remote.goals.todayMinutes;
+            if (Array.isArray(remote.highlights)) {
+              const delH = new Set(state.deletedHighlightIds || []);
+              const byId = new Map(state.highlights.map(h => [h.id, h]));
+              remote.highlights.forEach(h => {
+                if (!h || !h.id || delH.has(h.id)) return;
+                const ex = byId.get(h.id);
+                if (!ex || (h.updatedAt || h.createdAt || 0) > (ex.updatedAt || ex.createdAt || 0)) {
+                  byId.set(h.id, h);
+                  hlChanged = true;
+                }
+              });
+              state.highlights = Array.from(byId.values());
+            }
+            if (hlChanged && currentBookId) {
+              const track = document.getElementById('colTrack');
+              if (track) track.dataset.renderedKey = '';
+              renderReaderContent();
+            }
+            if (Array.isArray(remote.bookOrder) && (remote.bookOrderUpdatedAt || 0) > (state.bookOrderUpdatedAt || 0)) {
+              state.bookOrder = remote.bookOrder;
+              state.bookOrderUpdatedAt = remote.bookOrderUpdatedAt;
+            }
+            if (remote.goals) {
+              const today = new Date().toISOString().slice(0, 10);
+              if (remote.goals.todayDate === today) {
+                const rSec = typeof remote.goals.todaySeconds === 'number' ? remote.goals.todaySeconds : (remote.goals.todayMinutes || 0) * 60;
+                if (rSec > (state.goals.todaySeconds || 0)) {
+                  state.goals.todaySeconds = rSec;
+                  state.goals.todayMinutes = Math.floor(rSec / 60);
+                  state.goals.todayDate = today;
+                }
+              }
+              if ((remote.goals.updatedAt || 0) > (state.goals.updatedAt || 0) && remote.goals.dailyMinutes) {
+                state.goals.dailyMinutes = remote.goals.dailyMinutes;
+              }
+              if ((remote.goals.streakDays || 0) > (state.goals.streakDays || 0)) {
+                state.goals.streakDays = remote.goals.streakDays;
+              }
             }
             let booksAdded = false;
             if (Array.isArray(remote.deletedBookIds) && remote.deletedBookIds.length) {
@@ -1285,6 +1660,39 @@
         return state.books.find(b => b.id === id);
       }
 
+      function ensureBookOrder() {
+        const ids = state.books.map(b => b.id);
+        const cur = (state.bookOrder || []).filter(id => ids.includes(id));
+        ids.forEach(id => { if (!cur.includes(id)) cur.push(id); });
+        state.bookOrder = cur;
+        return cur;
+      }
+
+      function sortByCustomOrder(books) {
+        const order = ensureBookOrder();
+        const idxMap = new Map(order.map((id, i) => [id, i]));
+        return [...books].sort((a, b) => (idxMap.get(a.id) ?? 9999) - (idxMap.get(b.id) ?? 9999));
+      }
+
+      function reorderBook(bookId, action, targetBookId = null) {
+        const order = ensureBookOrder();
+        const idx = order.indexOf(bookId);
+        if (idx < 0) return;
+        order.splice(idx, 1);
+        if (action === 'top') order.unshift(bookId);
+        else if (action === 'up') order.splice(Math.max(0, idx - 1), 0, bookId);
+        else if (action === 'down') order.splice(Math.min(order.length, idx + 1), 0, bookId);
+        else if (action === 'before' && targetBookId) {
+          const tIdx = order.indexOf(targetBookId);
+          order.splice(tIdx >= 0 ? tIdx : 0, 0, bookId);
+        }
+        state.bookOrder = order;
+        state.bookOrderUpdatedAt = Date.now();
+        state.librarySort = 'custom';
+        saveState();
+        renderAll();
+      }
+
       function getBookProgress(id) {
         return state.progress[id] || { chapterIdx: 0, pageIdx: 0, scrollRatio: 0, percent: 0, updatedAt: 0 };
       }
@@ -1314,6 +1722,7 @@
       // Apply dark mode on shell
       function applyAppDarkMode() {
         document.body.classList.toggle('app-dark', !!state.appDark);
+        if (!currentBookId) syncNativeThemeBar(false);
         const btn = document.getElementById('toggleAppDarkBtn');
         if (btn) {
           btn.innerHTML = `<i data-lucide="${state.appDark ? 'sun' : 'moon'}" class="w-4 h-4"></i>`;
@@ -1382,7 +1791,7 @@
             : `<span title="Not started" class="inline-flex items-center gap-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide" style="color: var(--accent);">New</span>`;
 
         return `
-          <div class="book-card group flex flex-col cursor-pointer" data-open-book="${escapeHtml(book.id)}">
+          <div class="book-card group flex flex-col cursor-pointer" draggable="true" data-drag-book="${escapeHtml(book.id)}" data-open-book="${escapeHtml(book.id)}">
             <div class="book-cover-wrap mb-2">
               <img src="${book.cover}" alt="${escapeHtml(book.title)}" loading="lazy" decoding="async" class="w-full h-full object-cover" />
               ${pct > 0 && pct < 100 ? `
@@ -1420,15 +1829,17 @@
           const heroProg = heroBook ? getBookProgress(heroBook.id) : null;
           const heroChapter = heroBook ? (heroBook.chapters[heroProg.chapterIdx] || heroBook.chapters[0]) : null;
 
-          const goalPct = Math.min(100, Math.round((state.goals.todayMinutes / Math.max(1, state.goals.dailyMinutes)) * 100));
+          const todaySec = typeof state.goals.todaySeconds === 'number' ? state.goals.todaySeconds : (state.goals.todayMinutes || 0) * 60;
+          const goalPct = Math.min(100, Math.round((todaySec / Math.max(60, state.goals.dailyMinutes * 60)) * 100));
           const radius = 36;
           const circumference = 2 * Math.PI * radius;
           const dashOffset = circumference - (goalPct / 100) * circumference;
           const finishedCount = state.books.filter(b => b.status === 'finished').length;
 
+          const orderedAll = state.bookOrder && state.bookOrder.length ? sortByCustomOrder(state.books) : state.books;
           const filteredBooks = q
-            ? state.books.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q))
-            : state.books;
+            ? orderedAll.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q))
+            : orderedAll;
 
           container.innerHTML = `
             <div class="max-w-5xl mx-auto space-y-8">
@@ -1494,7 +1905,7 @@
                         </defs>
                       </svg>
                       <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-xl font-bold leading-none">${state.goals.todayMinutes}m</span>
+                        <span class="text-lg font-bold leading-none">${formatReadingClock(todaySec)}</span>
                         <span class="text-[10px] mt-0.5" style="color: var(--text-secondary);">of ${state.goals.dailyMinutes}m</span>
                       </div>
                     </div>
@@ -1584,6 +1995,7 @@
           container.querySelectorAll('[data-del-hl]').forEach(btn => {
             btn.onclick = () => {
               state.highlights = state.highlights.filter(x => x.id !== btn.dataset.delHl);
+              state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), btn.dataset.delHl]));
               saveState();
               renderAll();
               showToast('Highlight removed');
@@ -1611,7 +2023,8 @@
             books = books.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q));
           }
 
-          if (state.librarySort === 'title') books.sort((a, b) => a.title.localeCompare(b.title));
+          if (state.librarySort === 'custom') books = sortByCustomOrder(books);
+          else if (state.librarySort === 'title') books.sort((a, b) => a.title.localeCompare(b.title));
           else if (state.librarySort === 'author') books.sort((a, b) => a.author.localeCompare(b.author));
           else if (state.librarySort === 'progress') books.sort((a, b) => (getBookProgress(b.id).percent || 0) - (getBookProgress(a.id).percent || 0));
           else books.sort((a, b) => (b.lastOpenedAt || b.addedAt || 0) - (a.lastOpenedAt || a.addedAt || 0));
@@ -1622,6 +2035,7 @@
                 <div class="text-xs font-medium" style="color: var(--text-secondary);">${books.length} ${books.length === 1 ? 'book' : 'books'}</div>
                 <div class="flex items-center gap-2">
                   <select id="librarySortSelect" class="px-3 py-1.5 rounded-lg border text-xs bg-transparent" style="border-color: var(--border-subtle);">
+                    <option value="custom" ${state.librarySort === 'custom' ? 'selected' : ''}>Sort: Custom Order</option>
                     <option value="recent" ${state.librarySort === 'recent' ? 'selected' : ''}>Sort: Recent</option>
                     <option value="title" ${state.librarySort === 'title' ? 'selected' : ''}>Sort: Title</option>
                     <option value="author" ${state.librarySort === 'author' ? 'selected' : ''}>Sort: Author</option>
@@ -1665,6 +2079,23 @@
             openBookMenu(btn.dataset.bookMenu);
           };
         });
+        let draggedBookId = null;
+        container.querySelectorAll('[data-drag-book]').forEach(card => {
+          card.ondragstart = (e) => {
+            draggedBookId = card.dataset.dragBook;
+            card.style.opacity = '0.5';
+            try { e.dataTransfer.setData('text/plain', draggedBookId); } catch (err) {}
+          };
+          card.ondragend = () => { card.style.opacity = ''; draggedBookId = null; };
+          card.ondragover = (e) => { if (draggedBookId && draggedBookId !== card.dataset.dragBook) e.preventDefault(); };
+          card.ondrop = (e) => {
+            if (!draggedBookId || draggedBookId === card.dataset.dragBook) return;
+            e.preventDefault();
+            e.stopPropagation();
+            reorderBook(draggedBookId, 'before', card.dataset.dragBook);
+            showToast('Book order updated & synced', 'success');
+          };
+        });
 
         lucide.createIcons();
       }
@@ -1695,6 +2126,17 @@
           <button id="bmReadBtn" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-black/5">
             <i data-lucide="book-open" class="w-4 h-4"></i><span>Open Book</span>
           </button>
+          <div class="grid grid-cols-3 gap-1.5 pb-1">
+            <button id="bmMoveTopBtn" class="flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-medium border hover:bg-black/5" style="border-color: var(--border-subtle);">
+              <i data-lucide="arrow-up-to-line" class="w-3.5 h-3.5"></i><span>Top</span>
+            </button>
+            <button id="bmMoveUpBtn" class="flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-medium border hover:bg-black/5" style="border-color: var(--border-subtle);">
+              <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i><span>Earlier</span>
+            </button>
+            <button id="bmMoveDownBtn" class="flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-medium border hover:bg-black/5" style="border-color: var(--border-subtle);">
+              <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i><span>Later</span>
+            </button>
+          </div>
           <button id="bmWantBtn" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm hover:bg-black/5">
             <i data-lucide="bookmark" class="w-4 h-4"></i><span>${book.status === 'want' ? 'Remove from Want to Read' : 'Add to Want to Read'}</span>
           </button>
@@ -1713,6 +2155,9 @@
         `;
 
         document.getElementById('bmReadBtn').onclick = () => { closeModal('bookMenuModal'); openBook(bookId); };
+        document.getElementById('bmMoveTopBtn').onclick = () => { reorderBook(bookId, 'top'); closeModal('bookMenuModal'); showToast('Moved book to top', 'success'); };
+        document.getElementById('bmMoveUpBtn').onclick = () => { reorderBook(bookId, 'up'); closeModal('bookMenuModal'); };
+        document.getElementById('bmMoveDownBtn').onclick = () => { reorderBook(bookId, 'down'); closeModal('bookMenuModal'); };
         document.getElementById('bmWantBtn').onclick = () => {
           book.status = book.status === 'want' ? 'reading' : 'want';
           saveState(); renderAll(); closeModal('bookMenuModal');
@@ -1731,6 +2176,7 @@
           state.deletedBookIds = Array.from(new Set([...(state.deletedBookIds || []), bookId]));
           state.libraryVersion = Date.now();
           saveState();
+          saveBooksToDisk(false);
           pushUploadedBooksToWifi();
           renderAll();
           closeModal('bookMenuModal');
@@ -1752,10 +2198,37 @@
 
       // ===================== READER ENGINE =====================
 
+      let readerChromeVisible = false;
+      let totalColPages = 1;
+      let colPageStride = 0;
+
+      function syncNativeThemeBar(inReader) {
+        if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksTheme)) return;
+        const themeBgMap = {
+          original: { bg: '#ffffff', dark: false },
+          quiet:    { bg: '#1c1c1e', dark: true },
+          paper:    { bg: '#f7f2e7', dark: false },
+          bold:     { bg: '#fafafa', dark: false },
+          calm:     { bg: '#ece4d4', dark: false },
+          focus:    { bg: '#000000', dark: true }
+        };
+        const info = inReader
+          ? (themeBgMap[state.readerSettings.theme] || themeBgMap.paper)
+          : { bg: state.appDark ? '#000000' : '#f5f5f7', dark: !!state.appDark };
+        try { window.webkit.messageHandlers.booksTheme.postMessage(info); } catch (e) {}
+      }
+
+      function setReaderChrome(visible) {
+        readerChromeVisible = !!visible;
+        const rv = document.getElementById('readerView');
+        if (rv) rv.classList.toggle('chrome-hidden', !readerChromeVisible);
+      }
+
       function applyReaderSettings() {
         const rv = document.getElementById('readerView');
         const s = state.readerSettings;
-        rv.className = `fixed inset-0 z-40 flex flex-col reader-theme-${s.theme}`;
+        rv.className = `fixed inset-0 z-40 flex flex-col reader-theme-${s.theme}${readerChromeVisible ? '' : ' chrome-hidden'}`;
+        syncNativeThemeBar(true);
 
         const fontMap = {
           newsreader: '"Newsreader", Georgia, serif',
@@ -1765,8 +2238,9 @@
           mono: '"JetBrains Mono", monospace'
         };
 
-        const targets = [document.getElementById('pageLeft'), document.getElementById('pageRight'), document.getElementById('scrollContent')];
+        const targets = [document.getElementById('colTrack'), document.getElementById('scrollContent')];
         targets.forEach(el => {
+          if (!el) return;
           el.style.fontFamily = fontMap[s.fontFamily] || fontMap.newsreader;
           el.style.fontSize = s.fontSize + 'px';
           el.style.lineHeight = s.lineHeight;
@@ -1775,6 +2249,11 @@
         });
 
         document.getElementById('fontSizeReadout').textContent = s.fontSize + 'px';
+        const isDarkR = ['focus', 'quiet'].includes(s.theme);
+        ['readerDarkToggleBtn', 'mobileDarkProxyBtn'].forEach(id => {
+          const b = document.getElementById(id);
+          if (b) b.innerHTML = `<i data-lucide="${isDarkR ? 'sun' : 'moon'}" class="w-4 h-4"></i>`;
+        });
         document.getElementById('fontFamilySelect').value = s.fontFamily;
         document.getElementById('pageTurnSelect').value = s.pageTurn;
         document.getElementById('lineHeightSlider').value = s.lineHeight;
@@ -1810,12 +2289,28 @@
         document.getElementById('nextPageBtn').classList.toggle('hidden', isScroll);
 
         const useSpread = s.spread && window.innerWidth >= 1024;
-        document.getElementById('pageRight').classList.toggle('hidden', !useSpread);
         document.getElementById('pageSpine').classList.toggle('hidden', !useSpread);
       }
 
+      function sanitizeInlineHtml(raw) {
+        // Preserve safe bold/italic formatting from EPUBs while blocking scripts/attrs
+        const tmp = document.createElement('div');
+        tmp.innerHTML = String(raw || '');
+        const walk = (node) => {
+          if (node.nodeType === 3) return escapeHtml(node.textContent);
+          if (node.nodeType !== 1) return '';
+          const tag = node.tagName.toLowerCase();
+          const inner = Array.from(node.childNodes).map(walk).join('');
+          if (tag === 'strong' || tag === 'b') return `<strong>${inner}</strong>`;
+          if (tag === 'em' || tag === 'i') return `<em>${inner}</em>`;
+          if (tag === 'br') return '<br/>';
+          return inner;
+        };
+        return Array.from(tmp.childNodes).map(walk).join('');
+      }
+
       function applyHighlightsToText(text, bookId, chapterIdx) {
-        let html = escapeHtml(text);
+        let html = typeof text === 'object' && text && text.html ? sanitizeInlineHtml(text.html) : escapeHtml(text);
         const hls = state.highlights.filter(h => h.bookId === bookId && h.chapterIdx === chapterIdx);
         hls.forEach(h => {
           const safeTarget = escapeHtml(h.text);
@@ -1826,35 +2321,33 @@
         return html;
       }
 
-      function paginateChapter(book, chapterIdx) {
-        const ch = book.chapters[chapterIdx];
-        if (!ch) return ['<p>Empty chapter.</p>'];
+      function layoutMultiColumnPages(instant = false) {
+        const vp = document.getElementById('colViewport');
+        const track = document.getElementById('colTrack');
+        if (!vp || !track) return;
         const s = state.readerSettings;
-        // Estimate characters per single page cleanly based on viewport & font size
-        const stageH = Math.max(380, window.innerHeight - 170);
         const isSpread = s.spread && window.innerWidth >= 1024;
-        const colW = isSpread ? Math.min(440, (window.innerWidth - 180) / 2) : Math.min(680, window.innerWidth - 80);
-        const linesPerPage = Math.max(8, Math.floor(stageH / (s.fontSize * s.lineHeight)) - 1);
-        const charsPerLine = Math.max(32, Math.floor(colW / (s.fontSize * 0.52)));
-        const maxChars = Math.max(420, Math.floor(linesPerPage * charsPerLine * 0.86));
+        const gap = isSpread ? 56 : 32;
+        const vpWidth = Math.max(240, vp.clientWidth);
+        const colWidth = isSpread ? Math.floor((vpWidth - gap) / 2) : vpWidth;
 
-        const pages = [];
-        let currentHtml = `<h2 style="font-size:${Math.round(s.fontSize * 1.32)}px;">${escapeHtml(ch.title)}</h2>`;
-        let currentChars = ch.title.length + 120;
+        track.style.columnWidth = colWidth + 'px';
+        track.style.columnGap = gap + 'px';
+        track.style.width = vpWidth + 'px';
 
-        ch.paragraphs.forEach(p => {
-          const pHtml = `<p>${applyHighlightsToText(p, book.id, chapterIdx)}</p>`;
-          if (currentChars + p.length > maxChars && currentChars > 180) {
-            pages.push(currentHtml);
-            currentHtml = pHtml;
-            currentChars = p.length;
-          } else {
-            currentHtml += pHtml;
-            currentChars += p.length + 45;
-          }
-        });
-        if (currentHtml) pages.push(currentHtml);
-        return pages.length ? pages : ['<p></p>'];
+        // Measure exact number of pages rendered by browser layout engine!
+        const scrollW = Math.max(vpWidth, track.scrollWidth);
+        colPageStride = vpWidth + gap;
+        totalColPages = Math.max(1, Math.round((scrollW + gap) / colPageStride));
+        currentPages = new Array(totalColPages);
+
+        if (currentPageIdx >= totalColPages) currentPageIdx = totalColPages - 1;
+        if (currentPageIdx < 0) currentPageIdx = 0;
+
+        if (instant || s.pageTurn === 'none') track.classList.add('no-anim');
+        else track.classList.remove('no-anim');
+
+        track.style.transform = `translateX(-${currentPageIdx * colPageStride}px)`;
       }
 
       function renderReaderContent(direction = null) {
@@ -1863,14 +2356,18 @@
         const ch = book.chapters[currentChapterIdx] || book.chapters[0];
         document.getElementById('readerBookTitle').textContent = book.title;
         document.getElementById('readerChapterLabel').textContent = ch.title;
+        const immHeader = document.getElementById('immersiveHeader');
+        if (immHeader) immHeader.textContent = ch.title || book.title;
 
         applyReaderSettings();
         const s = state.readerSettings;
 
+        const chapterHtml = `<h2 style="font-size:${Math.round(s.fontSize * 1.32)}px;">${escapeHtml(ch.title)}</h2>` +
+          ch.paragraphs.map(p => `<p>${applyHighlightsToText(p, book.id, currentChapterIdx)}</p>`).join('');
+
         if (s.layout === 'scroll') {
           const sc = document.getElementById('scrollContent');
-          sc.innerHTML = `<h2 style="font-size:${Math.round(s.fontSize * 1.4)}px;">${escapeHtml(ch.title)}</h2>` +
-            ch.paragraphs.map(p => `<p>${applyHighlightsToText(p, book.id, currentChapterIdx)}</p>`).join('') +
+          sc.innerHTML = chapterHtml +
             `<div class="flex justify-between pt-8 mt-8 border-t" style="border-color:var(--r-border);">
               <button id="scrollPrevChBtn" class="px-4 py-2 rounded-xl border text-xs font-medium ${currentChapterIdx === 0 ? 'opacity-30 pointer-events-none' : 'hover:bg-black/5'}" style="border-color:var(--r-border);">← Previous Chapter</button>
               <button id="scrollNextChBtn" class="px-4 py-2 rounded-xl border text-xs font-medium ${currentChapterIdx >= book.chapters.length - 1 ? 'opacity-30 pointer-events-none' : 'hover:bg-black/5'}" style="border-color:var(--r-border);">Next Chapter →</button>
@@ -1878,26 +2375,12 @@
           document.getElementById('scrollPrevChBtn').onclick = () => { if (currentChapterIdx > 0) { currentChapterIdx--; currentPageIdx = 0; renderReaderContent(); document.getElementById('scrollContainer').scrollTop = 0; } };
           document.getElementById('scrollNextChBtn').onclick = () => { if (currentChapterIdx < book.chapters.length - 1) { currentChapterIdx++; currentPageIdx = 0; renderReaderContent(); document.getElementById('scrollContainer').scrollTop = 0; } };
         } else {
-          currentPages = paginateChapter(book, currentChapterIdx);
-          const isSpread = s.spread && window.innerWidth >= 1024;
-          const step = isSpread ? 2 : 1;
-          if (currentPageIdx >= currentPages.length) currentPageIdx = Math.max(0, currentPages.length - step);
-          if (isSpread && currentPageIdx % 2 !== 0) currentPageIdx = Math.max(0, currentPageIdx - 1);
-
-          const leftEl = document.getElementById('pageLeft');
-          const rightEl = document.getElementById('pageRight');
-          leftEl.innerHTML = currentPages[currentPageIdx] || '';
-          rightEl.innerHTML = isSpread ? (currentPages[currentPageIdx + 1] || '') : '';
-
-          // Apply page turn animation
-          const pc = document.getElementById('paginatedContainer');
-          pc.classList.remove('anim-slide-next', 'anim-slide-prev', 'anim-curl-next', 'anim-curl-prev', 'anim-fade');
-          if (direction && s.pageTurn !== 'none') {
-            void pc.offsetWidth;
-            if (s.pageTurn === 'fade') pc.classList.add('anim-fade');
-            else if (s.pageTurn === 'curl') pc.classList.add(direction === 'next' ? 'anim-curl-next' : 'anim-curl-prev');
-            else pc.classList.add(direction === 'next' ? 'anim-slide-next' : 'anim-slide-prev');
+          const track = document.getElementById('colTrack');
+          if (track.dataset.renderedKey !== `${book.id}:${currentChapterIdx}:${state.highlights.length}`) {
+            track.innerHTML = chapterHtml;
+            track.dataset.renderedKey = `${book.id}:${currentChapterIdx}:${state.highlights.length}`;
           }
+          layoutMultiColumnPages(direction === null);
         }
 
         bindHighlightClicks();
@@ -1927,22 +2410,25 @@
           chFraction = sc.scrollTop / maxScroll;
           document.getElementById('footerPageStatus').textContent = `Chapter ${currentChapterIdx + 1} of ${totalCh}`;
         } else {
-          const isSpread = state.readerSettings.spread && window.innerWidth >= 1024;
-          const endPage = isSpread ? Math.min(totalPagesInCh, currentPageIdx + 2) : currentPageIdx + 1;
-          chFraction = endPage / totalPagesInCh;
-          document.getElementById('footerPageStatus').textContent = isSpread && endPage > currentPageIdx + 1
-            ? `Pages ${currentPageIdx + 1}–${endPage} of ${totalPagesInCh}`
-            : `Page ${currentPageIdx + 1} of ${totalPagesInCh}`;
+          chFraction = (currentPageIdx + 1) / totalPagesInCh;
+          document.getElementById('footerPageStatus').textContent = `Page ${currentPageIdx + 1} of ${totalPagesInCh}`;
+          const immFoot = document.getElementById('immersiveFooter');
+          if (immFoot) immFoot.textContent = `${currentPageIdx + 1} of ${totalPagesInCh}`;
         }
 
         const overallPct = Math.min(100, Math.round(((currentChapterIdx + chFraction) / totalCh) * 100));
         document.getElementById('footerPercentStatus').textContent = `${overallPct}%`;
         document.getElementById('progressScrubber').value = overallPct;
 
-        // Save position ("Pick up where you left off")
+        const chRatio = state.readerSettings.layout === 'scroll'
+          ? chFraction
+          : (totalPagesInCh > 1 ? currentPageIdx / (totalPagesInCh - 1) : 0);
+
+        // Save position ("Pick up where you left off" — works across different screen sizes!)
         state.progress[book.id] = {
           chapterIdx: currentChapterIdx,
           pageIdx: currentPageIdx,
+          chapterRatio: Math.max(0, Math.min(1, chRatio)),
           scrollRatio: state.readerSettings.layout === 'scroll' ? chFraction : 0,
           percent: overallPct,
           updatedAt: Date.now()
@@ -1954,27 +2440,53 @@
       }
 
       function openBook(bookId, forceChapterIdx = null, forcePageIdx = null) {
-        const book = getBook(bookId);
-        if (!book) return;
-        currentBookId = bookId;
-        const saved = getBookProgress(bookId);
-        currentChapterIdx = forceChapterIdx !== null ? forceChapterIdx : (saved.chapterIdx || 0);
-        currentPageIdx = forcePageIdx !== null ? forcePageIdx : (saved.pageIdx || 0);
-        if (currentChapterIdx >= book.chapters.length) currentChapterIdx = 0;
+        try {
+          const book = getBook(bookId);
+          if (!book || !Array.isArray(book.chapters) || book.chapters.length === 0) {
+            showToast('This book has no readable chapters', 'error');
+            return;
+          }
+          currentBookId = bookId;
+          const saved = getBookProgress(bookId);
+          const rawCh = forceChapterIdx !== null ? forceChapterIdx : (Number(saved.chapterIdx) || 0);
+          currentChapterIdx = Math.max(0, Math.min(book.chapters.length - 1, rawCh));
+          currentPageIdx = forcePageIdx !== null ? Math.max(0, Number(forcePageIdx) || 0) : Math.max(0, Number(saved.pageIdx) || 0);
 
-        document.getElementById('readerView').classList.remove('hidden');
-        document.getElementById('readerView').classList.add('flex');
-        renderReaderContent();
+          // Show reader view FIRST so layout dimensions (clientWidth/scrollWidth) are real
+          const rv = document.getElementById('readerView');
+          rv.classList.remove('hidden');
+          rv.classList.add('flex');
 
-        if (state.readerSettings.layout === 'scroll' && saved.scrollRatio) {
-          const sc = document.getElementById('scrollContainer');
-          setTimeout(() => {
-            sc.scrollTop = saved.scrollRatio * Math.max(0, sc.scrollHeight - sc.clientHeight);
-          }, 40);
+          // Clear cached renderedKey so fresh chapter renders cleanly
+          const track = document.getElementById('colTrack');
+          if (track) track.dataset.renderedKey = '';
+
+          renderReaderContent();
+
+          // Re-measure on next animation frame after iOS/Windows flex layout settles,
+          // and map cross-device chapterRatio accurately (e.g., laptop page 27 -> exact same spot on iPhone!)
+          requestAnimationFrame(() => {
+            if (!currentBookId) return;
+            if (state.readerSettings.layout === 'scroll') {
+              const sc = document.getElementById('scrollContainer');
+              if (sc && saved.scrollRatio) {
+                sc.scrollTop = saved.scrollRatio * Math.max(0, sc.scrollHeight - sc.clientHeight);
+              }
+            } else {
+              layoutMultiColumnPages(true);
+              if (forcePageIdx === null && typeof saved.chapterRatio === 'number' && saved.chapterRatio >= 0 && saved.chapterRatio <= 1 && totalColPages > 1) {
+                currentPageIdx = Math.max(0, Math.min(totalColPages - 1, Math.round(saved.chapterRatio * (totalColPages - 1))));
+                layoutMultiColumnPages(true);
+              }
+              updateReaderProgressUI();
+            }
+          });
+
+          startReadingTimer();
+          lucide.createIcons();
+        } catch (err) {
+          showToast('Could not open book: ' + (err && err.message ? err.message : 'layout error'), 'error');
         }
-
-        startReadingTimer();
-        lucide.createIcons();
       }
 
       function closeReader() {
@@ -1987,16 +2499,19 @@
         document.getElementById('readerView').classList.add('hidden');
         document.getElementById('readerView').classList.remove('flex');
         currentBookId = null;
+        syncNativeThemeBar(false);
         renderAll();
       }
 
       function nextPage() {
         const book = getBook(currentBookId);
         if (!book || state.readerSettings.layout === 'scroll') return;
-        const step = (state.readerSettings.spread && window.innerWidth >= 1024) ? 2 : 1;
-        if (currentPageIdx + step < currentPages.length) {
-          currentPageIdx += step;
-          renderReaderContent('next');
+        if (readerChromeVisible) setReaderChrome(false);
+        if (currentPageIdx + 1 < totalColPages) {
+          currentPageIdx += 1;
+          layoutMultiColumnPages(false);
+          updateReaderProgressUI();
+          updateBookmarkIcon();
         } else if (currentChapterIdx < book.chapters.length - 1) {
           currentChapterIdx++;
           currentPageIdx = 0;
@@ -2009,34 +2524,50 @@
       function prevPage() {
         const book = getBook(currentBookId);
         if (!book || state.readerSettings.layout === 'scroll') return;
-        const step = (state.readerSettings.spread && window.innerWidth >= 1024) ? 2 : 1;
-        if (currentPageIdx - step >= 0) {
-          currentPageIdx -= step;
-          renderReaderContent('prev');
+        if (readerChromeVisible) setReaderChrome(false);
+        if (currentPageIdx - 1 >= 0) {
+          currentPageIdx -= 1;
+          layoutMultiColumnPages(false);
+          updateReaderProgressUI();
+          updateBookmarkIcon();
         } else if (currentChapterIdx > 0) {
           currentChapterIdx--;
-          currentPages = paginateChapter(book, currentChapterIdx);
-          currentPageIdx = Math.max(0, currentPages.length - step);
+          currentPageIdx = 99999; // will clamp to last page of previous chapter!
           renderReaderContent('prev');
         }
       }
 
-      // Reading Goals Live Timer (low-wakeup 15s tick, pauses when backgrounded)
+      function formatReadingClock(totalSec) {
+        const s = Math.max(0, Math.floor(totalSec || 0));
+        const mins = Math.floor(s / 60);
+        const secs = s % 60;
+        if (mins === 0) return `${secs}s`;
+        if (secs === 0 || mins >= 10) return `${mins}m`;
+        return `${mins}m ${secs}s`;
+      }
+
+      // Real Reading Goals Live Timer (ticks every 5s, preserves exact seconds, syncs across all 3 devices!)
       function startReadingTimer() {
         stopReadingTimer();
-        readingSecondsAccum = 0;
         readingTimerInterval = setInterval(() => {
-          if (document.visibilityState !== 'visible') return;
-          readingSecondsAccum += 15;
-          if (readingSecondsAccum >= 60) {
-            readingSecondsAccum = 0;
-            state.goals.todayMinutes += 1;
-            saveState();
-            if (state.goals.todayMinutes === state.goals.dailyMinutes) {
-              showToast('Daily reading goal reached!', 'success');
-            }
+          if (document.visibilityState !== 'visible' || !currentBookId) return;
+          const today = new Date().toISOString().slice(0, 10);
+          if (state.goals.todayDate !== today) {
+            state.goals.todayDate = today;
+            state.goals.todaySeconds = 0;
+            state.goals.todayMinutes = 0;
           }
-        }, 15000);
+          state.goals.todaySeconds = (state.goals.todaySeconds || 0) + 5;
+          state.goals.todayMinutes = Math.floor(state.goals.todaySeconds / 60);
+          state.goals.updatedAt = Date.now();
+
+          if (state.goals.todayMinutes >= state.goals.dailyMinutes && state.goals.goalReachedDate !== today) {
+            state.goals.goalReachedDate = today;
+            state.goals.streakDays = (state.goals.streakDays || 0) + 1;
+            showToast('Daily reading goal reached! Streak +1', 'success');
+          }
+          saveState();
+        }, 5000);
       }
 
       function stopReadingTimer() {
@@ -2053,10 +2584,13 @@
       }
 
       function updateBookmarkIcon() {
-        const btn = document.getElementById('toggleBookmarkBtn');
         const active = isCurrentLocationBookmarked();
-        btn.style.color = active ? '#ef4444' : '';
-        btn.innerHTML = `<i data-lucide="bookmark" class="w-4 h-4 ${active ? 'fill-current' : ''}"></i>`;
+        ['toggleBookmarkBtn', 'mobileBookmarkProxyBtn'].forEach(id => {
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          btn.style.color = active ? '#ef4444' : '';
+          btn.innerHTML = `<i data-lucide="bookmark" class="w-4 h-4 ${active ? 'fill-current' : ''}"></i>`;
+        });
         lucide.createIcons();
       }
 
@@ -2182,7 +2716,8 @@
         }
         const matches = [];
         book.chapters.forEach((ch, chIdx) => {
-          ch.paragraphs.forEach(p => {
+          ch.paragraphs.forEach(rawP => {
+            const p = typeof rawP === 'string' ? rawP : (rawP.html || '').replace(/<[^>]+>/g, '');
             const pos = p.toLowerCase().indexOf(q);
             if (pos >= 0) {
               const start = Math.max(0, pos - 40);
@@ -2240,21 +2775,26 @@
 
       function createHighlight(color, note = '') {
         if (!pendingSelection) return;
+        const chosenColor = color || state.lastHighlightColor || 'yellow';
+        state.lastHighlightColor = chosenColor;
         const hl = {
-          id: 'hl-' + Date.now(),
+          id: 'hl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
           bookId: pendingSelection.bookId,
           chapterIdx: pendingSelection.chapterIdx,
           text: pendingSelection.text,
-          color,
+          color: chosenColor,
           note,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         };
         state.highlights.push(hl);
+        const track = document.getElementById('colTrack');
+        if (track) track.dataset.renderedKey = '';
         saveState();
-        window.getSelection().removeAllRanges();
+        try { window.getSelection().removeAllRanges(); } catch (e) {}
         hideHighlightPopover();
         renderReaderContent();
-        showToast('Highlight saved', 'success');
+        showToast('Highlight saved & synced', 'success');
         return hl;
       }
 
@@ -2288,7 +2828,7 @@
         }
         const book = getBook(currentBookId);
         if (!book) return;
-        const text = book.chapters[currentChapterIdx].paragraphs.join(' ');
+        const text = book.chapters[currentChapterIdx].paragraphs.map(p => typeof p === 'string' ? p : (p.html || '').replace(/<[^>]+>/g, '')).join(' ');
         const utt = new SpeechSynthesisUtterance(text);
         utt.rate = 1.0;
         utt.onend = () => stopTTS();
@@ -2319,6 +2859,7 @@
         }
         state.libraryVersion = Date.now();
         saveState();
+        saveBooksToDisk(false);
         pushUploadedBooksToWifi();
         renderAll();
       }
@@ -2349,6 +2890,27 @@
           chapters: chapters.length ? chapters : [{ title, paragraphs: ['(Empty file)'] }]
         });
         showToast(`Added "${title}" to your library`, 'success');
+      }
+
+      function compressCoverImage(dataUri) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const maxW = 420, maxH = 560;
+              let w = img.width || maxW, h = img.height || maxH;
+              const ratio = Math.min(1, maxW / w, maxH / h);
+              w = Math.max(1, Math.round(w * ratio));
+              h = Math.max(1, Math.round(h * ratio));
+              const c = document.createElement('canvas');
+              c.width = w; c.height = h;
+              c.getContext('2d').drawImage(img, 0, 0, w, h);
+              resolve(c.toDataURL('image/jpeg', 0.8));
+            } catch (e) { resolve(dataUri); }
+          };
+          img.onerror = () => resolve(dataUri);
+          img.src = dataUri;
+        });
       }
 
       function extUpper(name) {
@@ -2393,11 +2955,45 @@
           const coverZipFile = zip.file(opfDir + decodeURIComponent(coverItem.href));
           if (coverZipFile) {
             const b64 = await coverZipFile.async('base64');
-            coverUrl = `data:${coverItem.mediaType || 'image/jpeg'};base64,${b64}`;
+            const rawUri = `data:${coverItem.mediaType || 'image/jpeg'};base64,${b64}`;
+            coverUrl = await compressCoverImage(rawUri);
           }
         }
 
-        // Read spine chapters
+        // Build real chapter title map from EPUB 3 nav.xhtml and EPUB 2 toc.ncx!
+        const tocMap = {};
+        const normalizeHref = (h) => decodeURIComponent(String(h || '').split('#')[0]).replace(/^\.\//, '').split('/').pop().toLowerCase();
+
+        // Try EPUB 3 nav document
+        const navItem = Object.values(manifest).find(m => (m.properties || '').includes('nav'));
+        if (navItem && navItem.href) {
+          const navFile = zip.file(opfDir + decodeURIComponent(navItem.href));
+          if (navFile) {
+            const navDoc = parser.parseFromString(await navFile.async('string'), 'text/html');
+            navDoc.querySelectorAll('nav a[href]').forEach(a => {
+              const key = normalizeHref(a.getAttribute('href'));
+              const label = a.textContent.replace(/\s+/g, ' ').trim();
+              if (key && label && !tocMap[key]) tocMap[key] = label;
+            });
+          }
+        }
+
+        // Try EPUB 2 toc.ncx
+        const ncxItem = Object.values(manifest).find(m => (m.mediaType || '').includes('ncx') || (m.href || '').toLowerCase().endsWith('.ncx'));
+        if (ncxItem && ncxItem.href) {
+          const ncxFile = zip.file(opfDir + decodeURIComponent(ncxItem.href));
+          if (ncxFile) {
+            const ncxDoc = parser.parseFromString(await ncxFile.async('string'), 'application/xml');
+            ncxDoc.querySelectorAll('navPoint').forEach(np => {
+              const src = np.querySelector('content')?.getAttribute('src');
+              const label = np.querySelector('navLabel text')?.textContent?.replace(/\s+/g, ' ').trim();
+              const key = normalizeHref(src);
+              if (key && label && !tocMap[key]) tocMap[key] = label;
+            });
+          }
+        }
+
+        // Read spine chapters with real TOC names & preserved bold/italic inline formatting
         const spineRefs = Array.from(opfDoc.querySelectorAll('spine itemref')).map(r => r.getAttribute('idref'));
         const chapters = [];
         for (let i = 0; i < spineRefs.length; i++) {
@@ -2407,10 +3003,21 @@
           if (!htmlFile) continue;
           const xhtml = await htmlFile.async('string');
           const doc = parser.parseFromString(xhtml, 'text/html');
-          const heading = doc.querySelector('h1, h2, h3, title')?.textContent?.trim() || `Chapter ${chapters.length + 1}`;
-          const paragraphs = Array.from(doc.querySelectorAll('p, div.p, li'))
-            .map(el => el.textContent.replace(/\s+/g, ' ').trim())
-            .filter(t => t.length > 0);
+
+          const hrefKey = normalizeHref(item.href);
+          const headingEl = doc.querySelector('h1, h2, h3, [class*="chap"], [class*="ct"], [class*="title"]:not(title)');
+          const domHeading = headingEl ? headingEl.textContent.replace(/\s+/g, ' ').trim() : '';
+          const heading = tocMap[hrefKey] || (domHeading && domHeading.toLowerCase() !== title.toLowerCase() ? domHeading : `Chapter ${chapters.length + 1}`);
+
+          const paragraphs = Array.from(doc.querySelectorAll('p, div.p, li, blockquote'))
+            .map(el => {
+              const plain = el.textContent.replace(/\s+/g, ' ').trim();
+              if (!plain) return null;
+              // Keep safe bold/italic markup if present
+              const hasInline = el.querySelector('b, strong, i, em');
+              return hasInline ? { html: el.innerHTML.replace(/\s+/g, ' ').trim() } : plain;
+            })
+            .filter(Boolean);
           if (paragraphs.length > 0) {
             chapters.push({ title: heading, paragraphs });
           }
@@ -2561,11 +3168,14 @@
           exportedAt: new Date().toISOString(),
           libraryVersion: state.libraryVersion || 0,
           deletedBookIds: state.deletedBookIds || [],
+          deletedHighlightIds: state.deletedHighlightIds || [],
           progress: state.progress,
           bookmarks: state.bookmarks,
           highlights: state.highlights,
           goals: state.goals,
           collections: state.collections,
+          bookOrder: state.bookOrder || [],
+          bookOrderUpdatedAt: state.bookOrderUpdatedAt || 0,
           readerSettings: state.readerSettings
         };
         // Include uploaded books directly in cloud sync (Firebase) when not using Wi-Fi /api/books
@@ -2631,9 +3241,40 @@
       function wireEvents() {
         document.getElementById('toggleAppDarkBtn').onclick = () => {
           state.appDark = !state.appDark;
+          // Also switch reader theme into Dark (Focus) or Paper to match!
+          if (state.appDark && !['focus', 'quiet'].includes(state.readerSettings.theme)) {
+            state.readerSettings.theme = 'focus';
+          } else if (!state.appDark && ['focus', 'quiet'].includes(state.readerSettings.theme)) {
+            state.readerSettings.theme = 'paper';
+          }
           saveState();
           applyAppDarkMode();
         };
+
+        // Wire iPhone spacious topbar buttons to the exact same handlers
+        const bindProxy = (proxyId, targetId) => {
+          const p = document.getElementById(proxyId);
+          const t = document.getElementById(targetId);
+          if (p && t) p.onclick = () => t.click();
+        };
+        bindProxy('mobileTtsProxyBtn', 'ttsToggleBtn');
+        bindProxy('mobileSearchProxyBtn', 'toggleSearchInBookBtn');
+        bindProxy('mobileDarkProxyBtn', 'readerDarkToggleBtn');
+        bindProxy('mobileAaProxyBtn', 'toggleAaBtn');
+        bindProxy('mobileBookmarkProxyBtn', 'toggleBookmarkBtn');
+
+        // 1-Tap Dark Mode button inside Reader Top Bar
+        const readerDarkBtn = document.getElementById('readerDarkToggleBtn');
+        if (readerDarkBtn) {
+          readerDarkBtn.onclick = () => {
+            const isDark = ['focus', 'quiet'].includes(state.readerSettings.theme);
+            state.readerSettings.theme = isDark ? 'paper' : 'focus';
+            state.appDark = !isDark;
+            saveState();
+            applyAppDarkMode();
+            renderReaderContent();
+          };
+        }
 
         document.getElementById('openMobileMenuBtn').onclick = () => {
           document.getElementById('sidebar').classList.remove('-translate-x-full');
@@ -2704,6 +3345,7 @@
         };
         document.getElementById('saveGoalBtn').onclick = () => {
           state.goals.dailyMinutes = Number(document.getElementById('goalRangeInput').value) || 15;
+          state.goals.updatedAt = Date.now();
           saveState();
           closeModal('goalModal');
           renderMainView();
@@ -2742,7 +3384,14 @@
         document.getElementById('syncTabWifi').onclick = () => setSyncTab('wifi');
         document.getElementById('syncTabCloud').onclick = () => setSyncTab('cloud');
         document.getElementById('syncTabOffline').onclick = () => setSyncTab('offline');
-        document.getElementById('wifiSyncNowBtn').onclick = () => pullFromCloud(false);
+        document.getElementById('wifiSyncNowBtn').onclick = () => {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksBridge) {
+            window.webkit.messageHandlers.booksBridge.postMessage('triggerWifiSync');
+            showToast('Syncing with Windows PC...');
+          } else {
+            pullFromCloud(false);
+          }
+        };
         const iosBridgeBtn = document.getElementById('nativeIosWifiBtn');
         if (iosBridgeBtn) {
           if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksBridge) {
@@ -2807,6 +3456,21 @@
             touchStartY = e.touches[0].clientY;
           }
         }, { passive: true });
+        stageEl.addEventListener('click', (e) => {
+          if (!currentBookId) return;
+          if (e.target.closest('button, mark, a, input, select')) return;
+          const sel = window.getSelection();
+          if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) return;
+          const rect = stageEl.getBoundingClientRect();
+          const relX = (e.clientX - rect.left) / Math.max(1, rect.width);
+          if (state.readerSettings.layout !== 'scroll' && relX < 0.22) {
+            prevPage();
+          } else if (state.readerSettings.layout !== 'scroll' && relX > 0.78) {
+            nextPage();
+          } else {
+            setReaderChrome(!readerChromeVisible);
+          }
+        });
         stageEl.addEventListener('touchend', (e) => {
           if (!currentBookId || state.readerSettings.layout === 'scroll') return;
           if (!e.changedTouches.length) return;
@@ -2938,9 +3602,11 @@
           const targetCh = Math.min(book.chapters.length - 1, Math.floor(pct * book.chapters.length));
           const chFrac = (pct * book.chapters.length) - targetCh;
           currentChapterIdx = targetCh;
-          currentPages = paginateChapter(book, currentChapterIdx);
-          currentPageIdx = Math.min(currentPages.length - 1, Math.floor(chFrac * currentPages.length));
+          currentPageIdx = 0;
           renderReaderContent();
+          currentPageIdx = Math.min(totalColPages - 1, Math.floor(chFrac * totalColPages));
+          layoutMultiColumnPages(true);
+          updateReaderProgressUI();
         };
 
         // Scroll tracking
@@ -2950,10 +3616,62 @@
           }
         });
 
-        // Highlighting
+        // Highlighting (Mouse + Touch + iPad Apple Pencil!)
+        let selDebounce = null;
         document.addEventListener('mouseup', () => setTimeout(handleSelectionChange, 15));
+        document.addEventListener('touchend', () => setTimeout(handleSelectionChange, 120), { passive: true });
+        document.addEventListener('selectionchange', () => {
+          if (!currentBookId) return;
+          clearTimeout(selDebounce);
+          selDebounce = setTimeout(handleSelectionChange, 220);
+        });
         document.addEventListener('mousedown', (e) => {
           if (!e.target.closest('#highlightPopover')) hideHighlightPopover();
+        });
+
+        // Apple Pencil Direct Drag-to-Highlight on iPad (just glide your Pencil over text like Apple Books!)
+        let penStartRange = null;
+        const getCaretPoint = (x, y) => {
+          if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+          if (document.caretPositionFromPoint) {
+            const pos = document.caretPositionFromPoint(x, y);
+            if (pos) {
+              const r = document.createRange();
+              r.setStart(pos.offsetNode, pos.offset);
+              r.collapse(true);
+              return r;
+            }
+          }
+          return null;
+        };
+        const rStage = document.getElementById('readerStage');
+        rStage.addEventListener('pointerdown', (e) => {
+          if (!currentBookId || e.pointerType !== 'pen') return;
+          if (e.target.closest('button, mark, input, select')) return;
+          penStartRange = getCaretPoint(e.clientX, e.clientY);
+        });
+        rStage.addEventListener('pointerup', (e) => {
+          if (!currentBookId || e.pointerType !== 'pen' || !penStartRange) return;
+          const endRange = getCaretPoint(e.clientX, e.clientY);
+          const startR = penStartRange;
+          penStartRange = null;
+          if (!endRange) return;
+          try {
+            const fullRange = document.createRange();
+            const cmp = startR.compareBoundaryPoints(Range.START_TO_START, endRange);
+            if (cmp <= 0) {
+              fullRange.setStart(startR.startContainer, startR.startOffset);
+              fullRange.setEnd(endRange.startContainer, endRange.startOffset);
+            } else {
+              fullRange.setStart(endRange.startContainer, endRange.startOffset);
+              fullRange.setEnd(startR.startContainer, startR.startOffset);
+            }
+            const text = fullRange.toString().replace(/\s+/g, ' ').trim();
+            if (text.length >= 3) {
+              pendingSelection = { text: text.slice(0, 400), bookId: currentBookId, chapterIdx: currentChapterIdx };
+              createHighlight(state.lastHighlightColor || 'yellow', '');
+            }
+          } catch (err) { /* ignore cross-node pencil drag edge cases */ }
         });
         document.querySelectorAll('[data-hl-color]').forEach(btn => {
           btn.onclick = () => createHighlight(btn.dataset.hlColor);
@@ -2973,14 +3691,22 @@
           const hl = state.highlights.find(h => h.id === editingHighlightId);
           if (hl) {
             hl.note = document.getElementById('noteModalInput').value.trim();
+            hl.updatedAt = Date.now();
+            const track = document.getElementById('colTrack');
+            if (track) track.dataset.renderedKey = '';
             saveState();
             renderReaderContent();
-            showToast('Note saved', 'success');
+            showToast('Note saved & synced', 'success');
           }
           closeModal('noteModal');
         };
         document.getElementById('deleteHighlightBtn').onclick = () => {
           state.highlights = state.highlights.filter(h => h.id !== editingHighlightId);
+          if (editingHighlightId) {
+            state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), editingHighlightId]));
+          }
+          const track = document.getElementById('colTrack');
+          if (track) track.dataset.renderedKey = '';
           saveState();
           renderReaderContent();
           closeModal('noteModal');
@@ -3011,15 +3737,16 @@
         });
       }
 
-      // Init
+      // Init (apply saved Dark Mode immediately so there is zero white flash)
       loadState();
+      applyAppDarkMode();
       wireEvents();
       renderAll();
       idbLoad().then(saved => {
         if (saved && Array.isArray(saved.books) && saved.books.length) {
-          applyParsedState(saved);
+          mergeStateSafely(saved);
           ensureDefaultBooks();
-          renderAll();
+          if (!currentBookId) renderAll();
         }
       });
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksBridge) {

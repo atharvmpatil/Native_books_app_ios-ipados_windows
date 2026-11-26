@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Apple Books Desktop App for Windows (with built-in Same-Wi-Fi Sync Server)
-Can be run directly with Python 3 or compiled into a standalone .exe via Build-EXE.bat.
+Apple Books Desktop App for Windows
+- True 3-device simultaneous Wi-Fi Sync Server (Windows + iPhone + iPad)
+- Closes to Windows System Tray (next to NVIDIA / Legion Toolkit / MSI Afterburner)
+- Silent Startup support (--background)
 """
 import json
 import os
@@ -13,6 +15,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = 8765
+SYNC_LOCK = threading.Lock()
 
 
 def get_resource_dir():
@@ -44,38 +47,104 @@ def get_lan_ip():
         return "127.0.0.1"
 
 
-def read_sync_state():
-    if os.path.exists(SYNC_FILE):
+def read_json(path, default):
+    if os.path.exists(path):
         try:
-            with open(SYNC_FILE, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
-            return {}
-    return {}
+            return default
+    return default
 
 
-def write_sync_state(data):
-    tmp = SYNC_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, SYNC_FILE)
-
-
-def read_books_library():
-    if os.path.exists(BOOKS_FILE):
-        try:
-            with open(BOOKS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {"libraryVersion": 0, "books": []}
-    return {"libraryVersion": 0, "books": []}
-
-
-def write_books_library(data):
-    tmp = BOOKS_FILE + ".tmp"
+def write_json(path, data):
+    tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
-    os.replace(tmp, BOOKS_FILE)
+    os.replace(tmp, path)
+
+
+def merge_sync_state(current, incoming):
+    """Conflict-free 3-device merge (Windows + iPhone + iPad simultaneously)."""
+    out = dict(current)
+
+    # 1. Union of deleted tombstones
+    del_books = sorted(set(current.get("deletedBookIds", [])) | set(incoming.get("deletedBookIds", [])))
+    del_hls = sorted(set(current.get("deletedHighlightIds", [])) | set(incoming.get("deletedHighlightIds", [])))
+    del_hl_set = set(del_hls)
+    out["deletedBookIds"] = del_books
+    out["deletedHighlightIds"] = del_hls
+
+    # 2. Per-book progress: newest updatedAt wins
+    prog = dict(current.get("progress", {}))
+    for bid, p in incoming.get("progress", {}).items():
+        if isinstance(p, dict):
+            old_p = prog.get(bid)
+            if not old_p or p.get("updatedAt", 0) >= old_p.get("updatedAt", 0):
+                prog[bid] = p
+    out["progress"] = prog
+
+    # 3. Highlights: merge by ID (newest updatedAt/createdAt wins), respect deletions
+    hl_map = {}
+    for h in current.get("highlights", []):
+        if isinstance(h, dict) and h.get("id") and h["id"] not in del_hl_set:
+            hl_map[h["id"]] = h
+    for h in incoming.get("highlights", []):
+        if isinstance(h, dict) and h.get("id") and h["id"] not in del_hl_set:
+            old_h = hl_map.get(h["id"])
+            if not old_h or h.get("updatedAt", h.get("createdAt", 0)) >= old_h.get("updatedAt", old_h.get("createdAt", 0)):
+                hl_map[h["id"]] = h
+    out["highlights"] = list(hl_map.values())
+
+    # 4. Bookmarks: union by ID per book
+    bms = dict(current.get("bookmarks", {}))
+    for bid, lst in incoming.get("bookmarks", {}).items():
+        cur_lst = list(bms.get(bid, []))
+        seen = {x.get("id") for x in cur_lst if isinstance(x, dict)}
+        for item in lst:
+            if isinstance(item, dict) and item.get("id") not in seen:
+                cur_lst.append(item)
+                seen.add(item.get("id"))
+        bms[bid] = cur_lst
+    out["bookmarks"] = bms
+
+    # 5. Reading Goals Timer: keep max todaySeconds for same date, newest dailyMinutes target
+    c_goals = dict(current.get("goals", {}))
+    i_goals = incoming.get("goals", {})
+    if isinstance(i_goals, dict) and i_goals:
+        c_date = c_goals.get("todayDate", "")
+        i_date = i_goals.get("todayDate", "")
+        if i_date > c_date:
+            merged_goals = dict(i_goals)
+        elif c_date > i_date:
+            merged_goals = dict(c_goals)
+        else:
+            merged_goals = dict(c_goals)
+            c_sec = c_goals.get("todaySeconds", c_goals.get("todayMinutes", 0) * 60)
+            i_sec = i_goals.get("todaySeconds", i_goals.get("todayMinutes", 0) * 60)
+            best_sec = max(c_sec, i_sec)
+            merged_goals["todaySeconds"] = best_sec
+            merged_goals["todayMinutes"] = best_sec // 60
+            merged_goals["todayDate"] = i_date or c_date
+            merged_goals["streakDays"] = max(c_goals.get("streakDays", 1), i_goals.get("streakDays", 1))
+            if i_goals.get("updatedAt", 0) >= c_goals.get("updatedAt", 0) and i_goals.get("dailyMinutes"):
+                merged_goals["dailyMinutes"] = i_goals["dailyMinutes"]
+                merged_goals["updatedAt"] = i_goals.get("updatedAt", 0)
+        out["goals"] = merged_goals
+
+    # 6. Custom Book Order: newest bookOrderUpdatedAt wins
+    if incoming.get("bookOrderUpdatedAt", 0) >= current.get("bookOrderUpdatedAt", 0) and isinstance(incoming.get("bookOrder"), list):
+        out["bookOrder"] = incoming["bookOrder"]
+        out["bookOrderUpdatedAt"] = incoming.get("bookOrderUpdatedAt", 0)
+
+    # 7. Collections & Library Version
+    out["collections"] = list(dict.fromkeys(list(current.get("collections", [])) + list(incoming.get("collections", []))))
+    out["libraryVersion"] = max(current.get("libraryVersion", 0), incoming.get("libraryVersion", 0))
+    if "appDark" in incoming:
+        out["appDark"] = bool(incoming["appDark"])
+    if incoming.get("readerSettings"):
+        out["readerSettings"] = incoming["readerSettings"]
+    return out
 
 
 class BooksHandler(SimpleHTTPRequestHandler):
@@ -91,44 +160,43 @@ class BooksHandler(SimpleHTTPRequestHandler):
             self._send_json({"booksWifiSync": True, "lanUrl": f"http://{get_lan_ip()}:{PORT}"})
             return
         if self.path == "/api/sync":
-            st = read_sync_state()
-            lib = read_books_library()
-            st["libraryVersion"] = max(st.get("libraryVersion", 0), lib.get("libraryVersion", 0))
+            with SYNC_LOCK:
+                st = read_json(SYNC_FILE, {})
+                lib = read_json(BOOKS_FILE, {"libraryVersion": 0, "books": [], "deletedBookIds": []})
+                st["libraryVersion"] = max(st.get("libraryVersion", 0), lib.get("libraryVersion", 0))
             self._send_json(st)
             return
         if self.path == "/api/books":
-            self._send_json(read_books_library())
+            with SYNC_LOCK:
+                lib = read_json(BOOKS_FILE, {"libraryVersion": 0, "books": [], "deletedBookIds": []})
+            self._send_json(lib)
             return
         if self.path == "/":
             self.path = "/index.html"
         super().do_GET()
 
     def do_PUT(self):
-        if self.path == "/api/sync":
-            length = int(self.headers.get("Content-Length", "0"))
-            raw = self.rfile.read(length) if length > 0 else b"{}"
-            try:
-                incoming = json.loads(raw.decode("utf-8"))
-                current = read_sync_state()
-                merged_progress = dict(current.get("progress", {}))
-                for bid, prog in incoming.get("progress", {}).items():
-                    old_p = merged_progress.get(bid)
-                    if not old_p or prog.get("updatedAt", 0) >= old_p.get("updatedAt", 0):
-                        merged_progress[bid] = prog
-                incoming["progress"] = merged_progress
-                write_sync_state(incoming)
-                self._send_json({"ok": True})
-            except Exception as exc:
-                self.send_response(400)
-                self.end_headers()
-                self.wfile.write(str(exc).encode("utf-8"))
+        length = int(self.headers.get("Content-Length", "0"))
+        raw = self.rfile.read(length) if length > 0 else b"{}"
+        try:
+            incoming = json.loads(raw.decode("utf-8"))
+        except Exception as exc:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(str(exc).encode("utf-8"))
             return
+
+        if self.path == "/api/sync":
+            with SYNC_LOCK:
+                current = read_json(SYNC_FILE, {})
+                merged = merge_sync_state(current, incoming)
+                write_json(SYNC_FILE, merged)
+            self._send_json({"ok": True})
+            return
+
         if self.path == "/api/books":
-            length = int(self.headers.get("Content-Length", "0"))
-            raw = self.rfile.read(length) if length > 0 else b"{}"
-            try:
-                incoming = json.loads(raw.decode("utf-8"))
-                current = read_books_library()
+            with SYNC_LOCK:
+                current = read_json(BOOKS_FILE, {"libraryVersion": 0, "books": [], "deletedBookIds": []})
                 deleted = set(current.get("deletedBookIds", [])) | set(incoming.get("deletedBookIds", []))
                 by_id = {
                     b["id"]: b
@@ -143,13 +211,10 @@ class BooksHandler(SimpleHTTPRequestHandler):
                     "books": list(by_id.values()),
                     "deletedBookIds": sorted(deleted),
                 }
-                write_books_library(merged)
-                self._send_json({"ok": True, "count": len(merged["books"])})
-            except Exception as exc:
-                self.send_response(400)
-                self.end_headers()
-                self.wfile.write(str(exc).encode("utf-8"))
+                write_json(BOOKS_FILE, merged)
+            self._send_json({"ok": True, "count": len(merged["books"])})
             return
+
         self.send_response(404)
         self.end_headers()
 
@@ -166,45 +231,81 @@ class BooksHandler(SimpleHTTPRequestHandler):
 
 
 def start_server():
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), BooksHandler)
-    server.serve_forever()
-
-
-def launch_window(url, wifi_url):
-    # Option 1: Native embedded WebView2 desktop window if pywebview is installed
     try:
-        import webview
-        webview.create_window(
-            f"Books — iPad/iPhone Wi-Fi Link: {wifi_url}",
-            url,
-            width=1240,
-            height=820,
-            min_size=(840, 600),
-        )
-        webview.start()
-        return
-    except Exception:
+        server = ThreadingHTTPServer(("0.0.0.0", PORT), BooksHandler)
+        server.serve_forever()
+    except OSError:
         pass
 
-    # Option 2: Standalone chromeless app window using built-in Windows Edge
-    edge_paths = [
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-    ]
-    for edge in edge_paths:
-        if os.path.exists(edge):
-            print(f"iPad/iPhone Same-Wi-Fi URL: {wifi_url}")
-            proc = subprocess.Popen([edge, f"--app={url}", "--window-size=1240,820"])
-            proc.wait()
-            return
 
-    webbrowser.open(url)
-    input(f"Books is running! Open {wifi_url} on iPad/iPhone. Press Enter to quit...")
+def load_tray_image():
+    from PIL import Image
+    ico_path = os.path.join(RESOURCE_DIR, "app_icon.ico")
+    if os.path.exists(ico_path):
+        return Image.open(ico_path)
+    return Image.new("RGB", (64, 64), (255, 138, 61))
+
+
+def run_with_tray(local_url, wifi_url, start_hidden=False):
+    import webview
+    import pystray
+
+    quitting = {"flag": False}
+    win = webview.create_window(
+        f"Books — Home Wi-Fi Sync: {wifi_url}",
+        local_url,
+        width=1240,
+        height=820,
+        min_size=(840, 600),
+        hidden=start_hidden,
+    )
+
+    def on_closing():
+        if quitting["flag"]:
+            return True
+        # Close to Windows System Tray instead of exiting (keeps Wi-Fi sync alive for iPhone & iPad!)
+        win.hide()
+        return False
+
+    win.events.closing += on_closing
+
+    def show_window(icon=None, item=None):
+        win.show()
+        try:
+            win.restore()
+        except Exception:
+            pass
+
+    def quit_app(icon, item):
+        quitting["flag"] = True
+        icon.stop()
+        try:
+            win.destroy()
+        except Exception:
+            pass
+        os._exit(0)
+
+    menu = pystray.Menu(
+        pystray.MenuItem("Open Books", show_window, default=True),
+        pystray.MenuItem(f"Wi-Fi Sync: {wifi_url}", lambda i, it: None, enabled=False),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Quit Books & Stop Sync", quit_app),
+    )
+    tray_icon = pystray.Icon("AppleBooksWindows", load_tray_image(), f"Books ({wifi_url})", menu)
+    threading.Thread(target=tray_icon.run, daemon=True).start()
+    webview.start()
 
 
 if __name__ == "__main__":
-    t = threading.Thread(target=start_server, daemon=True)
-    t.start()
+    start_hidden = "--background" in sys.argv
+    threading.Thread(target=start_server, daemon=True).start()
     local_url = f"http://127.0.0.1:{PORT}"
     wifi_url = f"http://{get_lan_ip()}:{PORT}"
-    launch_window(local_url, wifi_url)
+    try:
+        run_with_tray(local_url, wifi_url, start_hidden=start_hidden)
+    except Exception:
+        if start_hidden:
+            start_server()
+        else:
+            webbrowser.open(local_url)
+            input(f"Books running at {wifi_url}. Press Enter to quit...")
