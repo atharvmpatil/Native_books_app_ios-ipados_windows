@@ -15,8 +15,8 @@ targets:
       path: BooksApp/Info.plist
       properties:
         CFBundleDisplayName: Books
-        CFBundleShortVersionString: "2.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "5.0"
+        CFBundleVersion: "5"
         UILaunchScreen: {}
         UIRequiresFullScreen: false
         UIStatusBarStyle: UIStatusBarStyleDefault
@@ -31,11 +31,12 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
-        NSLocalNetworkUsageDescription: "Used to sync your books, reading position, highlights, and bookmarks with your Windows PC on the same Wi-Fi."
+        NSLocalNetworkUsageDescription: "Used to auto-sync your books, reading position, and highlights with your Windows PC whenever you're on home Wi-Fi."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.localbooks.reader
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         CODE_SIGNING_ALLOWED: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
