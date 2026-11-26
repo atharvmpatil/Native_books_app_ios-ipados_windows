@@ -30,6 +30,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: "Used to auto-sync your books, reading position, and highlights with your Windows PC whenever you're on home Wi-Fi."
     settings:
