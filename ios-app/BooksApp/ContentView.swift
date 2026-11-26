@@ -46,7 +46,11 @@ struct ContentView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             Button("Connect") {
-                windowsWifiUrl = urlDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                var cleaned = urlDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !cleaned.isEmpty && !cleaned.lowercased().hasPrefix("http://") && !cleaned.lowercased().hasPrefix("https://") {
+                    cleaned = "http://" + cleaned
+                }
+                windowsWifiUrl = cleaned
             }
             Button("Use Offline Copy", role: .destructive) {
                 windowsWifiUrl = ""

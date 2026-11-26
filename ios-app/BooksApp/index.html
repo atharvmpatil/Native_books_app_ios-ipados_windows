@@ -112,8 +112,11 @@
     }
     .reader-prose h2 {
       font-weight: 600;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.85em;
+      letter-spacing: -0.025em;
+      padding-top: 0.9em;
+      margin-bottom: 1.15em;
+      padding-bottom: 0.55em;
+      border-bottom: 1px solid var(--r-border);
       line-height: 1.25;
       break-after: avoid;
     }
@@ -374,37 +377,60 @@
   <!-- FULLSCREEN READER VIEW -->
   <div id="readerView" class="fixed inset-0 z-40 hidden flex-col reader-theme-paper">
     <!-- Subtle Immersive Chapter Header (always visible when toolbars auto-hide, like Apple Books) -->
-    <div id="immersiveHeader" class="shrink-0 pt-2 pb-1 px-6 text-center text-[11px] font-medium truncate select-none" style="color: var(--r-muted);"></div>
+    <div id="immersiveHeader" class="shrink-0 pt-2.5 pb-1.5 px-6 text-center text-[11px] tracking-wide font-medium truncate select-none" style="color: var(--r-muted);"></div>
 
-    <!-- Reader Top Bar (Floating Overlay — tap center of page to toggle) -->
-    <header id="readerTopBar" class="absolute top-0 inset-x-0 px-3 sm:px-5 py-2 flex items-center justify-between border-b glass z-20"
+    <!-- Reader Top Bar (Spacious 2-row on iPhone, clean 1-row on iPad/Windows — zero cramping!) -->
+    <header id="readerTopBar" class="absolute top-0 inset-x-0 px-4 sm:px-6 py-2.5 border-b glass z-20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
       style="background: var(--r-panel); border-color: var(--r-border);">
-      <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
-        <button id="closeReaderBtn" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10 transition">
-          <i data-lucide="chevron-left" class="w-4 h-4"></i>
-          <span class="hidden sm:inline">Library</span>
-        </button>
-        <button id="toggleTocBtn" title="Table of Contents & Annotations" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition">
-          <i data-lucide="list" class="w-4 h-4"></i>
-        </button>
+      <div class="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+        <div class="flex items-center gap-1.5">
+          <button id="closeReaderBtn" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            <span>Library</span>
+          </button>
+          <button id="toggleTocBtn" title="Table of Contents & Annotations" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="list" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <div class="flex sm:hidden items-center gap-1">
+          <button id="mobileTtsProxyBtn" title="Read Aloud" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="volume-2" class="w-4 h-4"></i>
+          </button>
+          <button id="mobileSearchProxyBtn" title="Search in Book" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <button id="mobileDarkProxyBtn" title="Toggle Dark Mode" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="moon" class="w-4 h-4"></i>
+          </button>
+          <button id="mobileAaProxyBtn" title="Themes & Settings" class="px-2.5 py-1.5 rounded-xl font-serif font-semibold text-[15px] hover:bg-black/5 dark:hover:bg-white/10 transition">
+            Aa
+          </button>
+          <button id="mobileBookmarkProxyBtn" title="Bookmark Page" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+            <i data-lucide="bookmark" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
 
-      <div class="text-center min-w-0 px-2">
-        <div id="readerBookTitle" class="text-[13px] font-semibold truncate"></div>
-        <div id="readerChapterLabel" class="text-[11px] truncate" style="color: var(--r-muted);"></div>
+      <div class="text-center min-w-0 px-2 pb-0.5 sm:pb-0 sm:flex-1">
+        <div id="readerBookTitle" class="text-[14px] font-semibold leading-tight truncate"></div>
+        <div id="readerChapterLabel" class="text-[11px] mt-0.5 truncate" style="color: var(--r-muted);"></div>
       </div>
 
-      <div class="flex items-center gap-1 sm:gap-1.5 relative">
-        <button id="ttsToggleBtn" title="Read Aloud" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition">
+      <div class="hidden sm:flex items-center gap-1.5 relative">
+        <button id="ttsToggleBtn" title="Read Aloud" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="volume-2" class="w-4 h-4"></i>
         </button>
-        <button id="toggleSearchInBookBtn" title="Search in Book" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition">
+        <button id="toggleSearchInBookBtn" title="Search in Book" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="search" class="w-4 h-4"></i>
         </button>
-        <button id="toggleAaBtn" title="Themes & Settings" class="px-2.5 py-1.5 rounded-lg font-serif font-semibold text-[15px] hover:bg-black/5 dark:hover:bg-white/10 transition">
+        <button id="readerDarkToggleBtn" title="Toggle Reader Dark Mode" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
+          <i data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+        <button id="toggleAaBtn" title="Themes & Settings" class="px-2.5 py-1.5 rounded-xl font-serif font-semibold text-[15px] hover:bg-black/5 dark:hover:bg-white/10 transition">
           Aa
         </button>
-        <button id="toggleBookmarkBtn" title="Bookmark Page" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition">
+        <button id="toggleBookmarkBtn" title="Bookmark Page" class="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="bookmark" class="w-4 h-4"></i>
         </button>
       </div>
@@ -558,7 +584,7 @@
       </div>
 
       <!-- Reader Stage -->
-      <div id="readerStage" class="flex-1 relative flex items-center justify-center overflow-hidden px-5 sm:px-12 py-2 sm:py-4">
+      <div id="readerStage" class="flex-1 relative flex items-center justify-center overflow-hidden px-6 sm:px-12 py-2.5 sm:py-4">
         <!-- Prev / Next Click Buttons (Desktop only; tap edges or swipe on iPhone/iPad) -->
         <button id="prevPageBtn" title="Previous Page (Left Arrow)" class="hidden lg:flex items-center justify-center w-10 h-20 rounded-2xl absolute left-2 z-10 opacity-35 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition">
           <i data-lucide="chevron-left" class="w-6 h-6"></i>
@@ -939,6 +965,8 @@
         },
         libraryVersion: 0,
         deletedBookIds: [],
+        deletedHighlightIds: [],
+        lastHighlightColor: 'yellow',
         cloudSync: {
           enabled: false,
           dbUrl: '',
@@ -1011,14 +1039,81 @@
         state.cloudSync = Object.assign({}, state.cloudSync, parsed.cloudSync || {});
       }
 
-      // Exposed for native iOS Swift Documents/ disk loader
+      function mergeStateSafely(parsed) {
+        if (!parsed || typeof parsed !== 'object') return;
+        // Merge deleted tombstones first
+        if (Array.isArray(parsed.deletedBookIds)) {
+          state.deletedBookIds = Array.from(new Set([...(state.deletedBookIds || []), ...parsed.deletedBookIds]));
+        }
+        if (Array.isArray(parsed.deletedHighlightIds)) {
+          state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), ...parsed.deletedHighlightIds]));
+        }
+        const delBooks = new Set(state.deletedBookIds || []);
+        const delHls = new Set(state.deletedHighlightIds || []);
+
+        // Merge books without dropping newly synced/uploaded books
+        if (Array.isArray(parsed.books)) {
+          const existingIds = new Set(state.books.map(b => b.id));
+          parsed.books.forEach(b => {
+            if (b && b.id && !delBooks.has(b.id) && Array.isArray(b.chapters) && b.chapters.length > 0 && !existingIds.has(b.id)) {
+              state.books.unshift(b);
+              existingIds.add(b.id);
+            }
+          });
+          state.books = state.books.filter(b => !delBooks.has(b.id));
+        }
+
+        // Merge progress keeping newest updatedAt per book
+        if (parsed.progress && typeof parsed.progress === 'object') {
+          Object.keys(parsed.progress).forEach(bid => {
+            const p = parsed.progress[bid];
+            const cur = state.progress[bid];
+            if (p && (!cur || (p.updatedAt || 0) > (cur.updatedAt || 0))) {
+              state.progress[bid] = p;
+            }
+          });
+        }
+
+        // Merge highlights & bookmarks without losing any
+        if (Array.isArray(parsed.highlights)) {
+          const seen = new Set(state.highlights.map(h => h.id));
+          parsed.highlights.forEach(h => {
+            if (h && h.id && !delHls.has(h.id) && !seen.has(h.id)) {
+              state.highlights.push(h);
+              seen.add(h.id);
+            }
+          });
+          state.highlights = state.highlights.filter(h => !delHls.has(h.id));
+        }
+        if (parsed.bookmarks && typeof parsed.bookmarks === 'object') {
+          Object.keys(parsed.bookmarks).forEach(bid => {
+            const list = state.bookmarks[bid] || [];
+            const seen = new Set(list.map(x => x.id));
+            (parsed.bookmarks[bid] || []).forEach(bm => {
+              if (bm && bm.id && !seen.has(bm.id)) { list.push(bm); seen.add(bm.id); }
+            });
+            state.bookmarks[bid] = list;
+          });
+        }
+        if (parsed.readerSettings) state.readerSettings = Object.assign({}, state.readerSettings, parsed.readerSettings);
+        if (parsed.goals) {
+          state.goals = Object.assign({}, state.goals, parsed.goals);
+        }
+        if (typeof parsed.appDark === 'boolean') state.appDark = parsed.appDark;
+        if (Array.isArray(parsed.collections)) {
+          state.collections = Array.from(new Set([...(state.collections || []), ...parsed.collections]));
+        }
+      }
+
+      // Exposed for native iOS Swift Documents/ disk loader (merges safely, never crashes an open book!)
       window.__hydrateNativeBooksState = function(jsonStr) {
         try {
           if (!jsonStr) return;
           const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
-          applyParsedState(parsed);
+          mergeStateSafely(parsed);
           ensureDefaultBooks();
-          renderAll();
+          if (!currentBookId) renderAll();
+          else renderReaderContent();
         } catch (e) {}
       };
 
@@ -1203,10 +1298,18 @@
               const lProg = state.progress[bookId];
               if (!lProg || (rProg.updatedAt || 0) > (lProg.updatedAt || 0)) {
                 state.progress[bookId] = rProg;
-                if (currentBookId === bookId && (rProg.chapterIdx !== currentChapterIdx || rProg.pageIdx !== currentPageIdx)) {
-                  currentChapterIdx = rProg.chapterIdx || 0;
-                  currentPageIdx = rProg.pageIdx || 0;
-                  jumped = true;
+                if (currentBookId === bookId) {
+                  const bObj = getBook(bookId);
+                  const maxCh = bObj && bObj.chapters ? bObj.chapters.length - 1 : 0;
+                  const nextCh = Math.max(0, Math.min(maxCh, Number(rProg.chapterIdx) || 0));
+                  const nextPg = typeof rProg.chapterRatio === 'number' && totalColPages > 1
+                    ? Math.round(rProg.chapterRatio * (totalColPages - 1))
+                    : (Number(rProg.pageIdx) || 0);
+                  if (nextCh !== currentChapterIdx || Math.abs(nextPg - currentPageIdx) >= 1) {
+                    currentChapterIdx = nextCh;
+                    currentPageIdx = Math.max(0, nextPg);
+                    jumped = true;
+                  }
                 }
               }
             });
@@ -1218,9 +1321,31 @@
                 state.bookmarks[bid] = existing;
               });
             }
+            let hlChanged = false;
+            if (Array.isArray(remote.deletedHighlightIds) && remote.deletedHighlightIds.length) {
+              state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), ...remote.deletedHighlightIds]));
+              const delH = new Set(state.deletedHighlightIds);
+              const beforeH = state.highlights.length;
+              state.highlights = state.highlights.filter(h => !delH.has(h.id));
+              if (state.highlights.length !== beforeH) hlChanged = true;
+            }
             if (Array.isArray(remote.highlights)) {
-              const seenHl = new Set(state.highlights.map(h => h.id));
-              remote.highlights.forEach(h => { if (!seenHl.has(h.id)) state.highlights.push(h); });
+              const delH = new Set(state.deletedHighlightIds || []);
+              const byId = new Map(state.highlights.map(h => [h.id, h]));
+              remote.highlights.forEach(h => {
+                if (!h || !h.id || delH.has(h.id)) return;
+                const ex = byId.get(h.id);
+                if (!ex || (h.updatedAt || h.createdAt || 0) > (ex.updatedAt || ex.createdAt || 0)) {
+                  byId.set(h.id, h);
+                  hlChanged = true;
+                }
+              });
+              state.highlights = Array.from(byId.values());
+            }
+            if (hlChanged && currentBookId) {
+              const track = document.getElementById('colTrack');
+              if (track) track.dataset.renderedKey = '';
+              renderReaderContent();
             }
             if (remote.goals && (remote.goals.todayMinutes || 0) > (state.goals.todayMinutes || 0)) {
               state.goals.todayMinutes = remote.goals.todayMinutes;
@@ -1624,6 +1749,7 @@
           container.querySelectorAll('[data-del-hl]').forEach(btn => {
             btn.onclick = () => {
               state.highlights = state.highlights.filter(x => x.id !== btn.dataset.delHl);
+              state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), btn.dataset.delHl]));
               saveState();
               renderAll();
               showToast('Highlight removed');
@@ -1843,6 +1969,11 @@
         });
 
         document.getElementById('fontSizeReadout').textContent = s.fontSize + 'px';
+        const isDarkR = ['focus', 'quiet'].includes(s.theme);
+        ['readerDarkToggleBtn', 'mobileDarkProxyBtn'].forEach(id => {
+          const b = document.getElementById(id);
+          if (b) b.innerHTML = `<i data-lucide="${isDarkR ? 'sun' : 'moon'}" class="w-4 h-4"></i>`;
+        });
         document.getElementById('fontFamilySelect').value = s.fontFamily;
         document.getElementById('pageTurnSelect').value = s.pageTurn;
         document.getElementById('lineHeightSlider').value = s.lineHeight;
@@ -2009,10 +2140,15 @@
         document.getElementById('footerPercentStatus').textContent = `${overallPct}%`;
         document.getElementById('progressScrubber').value = overallPct;
 
-        // Save position ("Pick up where you left off")
+        const chRatio = state.readerSettings.layout === 'scroll'
+          ? chFraction
+          : (totalPagesInCh > 1 ? currentPageIdx / (totalPagesInCh - 1) : 0);
+
+        // Save position ("Pick up where you left off" — works across different screen sizes!)
         state.progress[book.id] = {
           chapterIdx: currentChapterIdx,
           pageIdx: currentPageIdx,
+          chapterRatio: Math.max(0, Math.min(1, chRatio)),
           scrollRatio: state.readerSettings.layout === 'scroll' ? chFraction : 0,
           percent: overallPct,
           updatedAt: Date.now()
@@ -2024,27 +2160,53 @@
       }
 
       function openBook(bookId, forceChapterIdx = null, forcePageIdx = null) {
-        const book = getBook(bookId);
-        if (!book) return;
-        currentBookId = bookId;
-        const saved = getBookProgress(bookId);
-        currentChapterIdx = forceChapterIdx !== null ? forceChapterIdx : (saved.chapterIdx || 0);
-        currentPageIdx = forcePageIdx !== null ? forcePageIdx : (saved.pageIdx || 0);
-        if (currentChapterIdx >= book.chapters.length) currentChapterIdx = 0;
+        try {
+          const book = getBook(bookId);
+          if (!book || !Array.isArray(book.chapters) || book.chapters.length === 0) {
+            showToast('This book has no readable chapters', 'error');
+            return;
+          }
+          currentBookId = bookId;
+          const saved = getBookProgress(bookId);
+          const rawCh = forceChapterIdx !== null ? forceChapterIdx : (Number(saved.chapterIdx) || 0);
+          currentChapterIdx = Math.max(0, Math.min(book.chapters.length - 1, rawCh));
+          currentPageIdx = forcePageIdx !== null ? Math.max(0, Number(forcePageIdx) || 0) : Math.max(0, Number(saved.pageIdx) || 0);
 
-        document.getElementById('readerView').classList.remove('hidden');
-        document.getElementById('readerView').classList.add('flex');
-        renderReaderContent();
+          // Show reader view FIRST so layout dimensions (clientWidth/scrollWidth) are real
+          const rv = document.getElementById('readerView');
+          rv.classList.remove('hidden');
+          rv.classList.add('flex');
 
-        if (state.readerSettings.layout === 'scroll' && saved.scrollRatio) {
-          const sc = document.getElementById('scrollContainer');
-          setTimeout(() => {
-            sc.scrollTop = saved.scrollRatio * Math.max(0, sc.scrollHeight - sc.clientHeight);
-          }, 40);
+          // Clear cached renderedKey so fresh chapter renders cleanly
+          const track = document.getElementById('colTrack');
+          if (track) track.dataset.renderedKey = '';
+
+          renderReaderContent();
+
+          // Re-measure on next animation frame after iOS/Windows flex layout settles,
+          // and map cross-device chapterRatio accurately (e.g., laptop page 27 -> exact same spot on iPhone!)
+          requestAnimationFrame(() => {
+            if (!currentBookId) return;
+            if (state.readerSettings.layout === 'scroll') {
+              const sc = document.getElementById('scrollContainer');
+              if (sc && saved.scrollRatio) {
+                sc.scrollTop = saved.scrollRatio * Math.max(0, sc.scrollHeight - sc.clientHeight);
+              }
+            } else {
+              layoutMultiColumnPages(true);
+              if (forcePageIdx === null && typeof saved.chapterRatio === 'number' && saved.chapterRatio >= 0 && saved.chapterRatio <= 1 && totalColPages > 1) {
+                currentPageIdx = Math.max(0, Math.min(totalColPages - 1, Math.round(saved.chapterRatio * (totalColPages - 1))));
+                layoutMultiColumnPages(true);
+              }
+              updateReaderProgressUI();
+            }
+          });
+
+          startReadingTimer();
+          lucide.createIcons();
+        } catch (err) {
+          showToast('Could not open book: ' + (err && err.message ? err.message : 'layout error'), 'error');
         }
-
-        startReadingTimer();
-        lucide.createIcons();
       }
 
       function closeReader() {
@@ -2127,10 +2289,13 @@
       }
 
       function updateBookmarkIcon() {
-        const btn = document.getElementById('toggleBookmarkBtn');
         const active = isCurrentLocationBookmarked();
-        btn.style.color = active ? '#ef4444' : '';
-        btn.innerHTML = `<i data-lucide="bookmark" class="w-4 h-4 ${active ? 'fill-current' : ''}"></i>`;
+        ['toggleBookmarkBtn', 'mobileBookmarkProxyBtn'].forEach(id => {
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          btn.style.color = active ? '#ef4444' : '';
+          btn.innerHTML = `<i data-lucide="bookmark" class="w-4 h-4 ${active ? 'fill-current' : ''}"></i>`;
+        });
         lucide.createIcons();
       }
 
@@ -2315,21 +2480,26 @@
 
       function createHighlight(color, note = '') {
         if (!pendingSelection) return;
+        const chosenColor = color || state.lastHighlightColor || 'yellow';
+        state.lastHighlightColor = chosenColor;
         const hl = {
-          id: 'hl-' + Date.now(),
+          id: 'hl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
           bookId: pendingSelection.bookId,
           chapterIdx: pendingSelection.chapterIdx,
           text: pendingSelection.text,
-          color,
+          color: chosenColor,
           note,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         };
         state.highlights.push(hl);
+        const track = document.getElementById('colTrack');
+        if (track) track.dataset.renderedKey = '';
         saveState();
-        window.getSelection().removeAllRanges();
+        try { window.getSelection().removeAllRanges(); } catch (e) {}
         hideHighlightPopover();
         renderReaderContent();
-        showToast('Highlight saved', 'success');
+        showToast('Highlight saved & synced', 'success');
         return hl;
       }
 
@@ -2680,6 +2850,7 @@
           exportedAt: new Date().toISOString(),
           libraryVersion: state.libraryVersion || 0,
           deletedBookIds: state.deletedBookIds || [],
+          deletedHighlightIds: state.deletedHighlightIds || [],
           progress: state.progress,
           bookmarks: state.bookmarks,
           highlights: state.highlights,
@@ -2750,9 +2921,40 @@
       function wireEvents() {
         document.getElementById('toggleAppDarkBtn').onclick = () => {
           state.appDark = !state.appDark;
+          // Also switch reader theme into Dark (Focus) or Paper to match!
+          if (state.appDark && !['focus', 'quiet'].includes(state.readerSettings.theme)) {
+            state.readerSettings.theme = 'focus';
+          } else if (!state.appDark && ['focus', 'quiet'].includes(state.readerSettings.theme)) {
+            state.readerSettings.theme = 'paper';
+          }
           saveState();
           applyAppDarkMode();
         };
+
+        // Wire iPhone spacious topbar buttons to the exact same handlers
+        const bindProxy = (proxyId, targetId) => {
+          const p = document.getElementById(proxyId);
+          const t = document.getElementById(targetId);
+          if (p && t) p.onclick = () => t.click();
+        };
+        bindProxy('mobileTtsProxyBtn', 'ttsToggleBtn');
+        bindProxy('mobileSearchProxyBtn', 'toggleSearchInBookBtn');
+        bindProxy('mobileDarkProxyBtn', 'readerDarkToggleBtn');
+        bindProxy('mobileAaProxyBtn', 'toggleAaBtn');
+        bindProxy('mobileBookmarkProxyBtn', 'toggleBookmarkBtn');
+
+        // 1-Tap Dark Mode button inside Reader Top Bar
+        const readerDarkBtn = document.getElementById('readerDarkToggleBtn');
+        if (readerDarkBtn) {
+          readerDarkBtn.onclick = () => {
+            const isDark = ['focus', 'quiet'].includes(state.readerSettings.theme);
+            state.readerSettings.theme = isDark ? 'paper' : 'focus';
+            state.appDark = !isDark;
+            saveState();
+            applyAppDarkMode();
+            renderReaderContent();
+          };
+        }
 
         document.getElementById('openMobileMenuBtn').onclick = () => {
           document.getElementById('sidebar').classList.remove('-translate-x-full');
@@ -3086,10 +3288,62 @@
           }
         });
 
-        // Highlighting
+        // Highlighting (Mouse + Touch + iPad Apple Pencil!)
+        let selDebounce = null;
         document.addEventListener('mouseup', () => setTimeout(handleSelectionChange, 15));
+        document.addEventListener('touchend', () => setTimeout(handleSelectionChange, 120), { passive: true });
+        document.addEventListener('selectionchange', () => {
+          if (!currentBookId) return;
+          clearTimeout(selDebounce);
+          selDebounce = setTimeout(handleSelectionChange, 220);
+        });
         document.addEventListener('mousedown', (e) => {
           if (!e.target.closest('#highlightPopover')) hideHighlightPopover();
+        });
+
+        // Apple Pencil Direct Drag-to-Highlight on iPad (just glide your Pencil over text like Apple Books!)
+        let penStartRange = null;
+        const getCaretPoint = (x, y) => {
+          if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+          if (document.caretPositionFromPoint) {
+            const pos = document.caretPositionFromPoint(x, y);
+            if (pos) {
+              const r = document.createRange();
+              r.setStart(pos.offsetNode, pos.offset);
+              r.collapse(true);
+              return r;
+            }
+          }
+          return null;
+        };
+        const rStage = document.getElementById('readerStage');
+        rStage.addEventListener('pointerdown', (e) => {
+          if (!currentBookId || e.pointerType !== 'pen') return;
+          if (e.target.closest('button, mark, input, select')) return;
+          penStartRange = getCaretPoint(e.clientX, e.clientY);
+        });
+        rStage.addEventListener('pointerup', (e) => {
+          if (!currentBookId || e.pointerType !== 'pen' || !penStartRange) return;
+          const endRange = getCaretPoint(e.clientX, e.clientY);
+          const startR = penStartRange;
+          penStartRange = null;
+          if (!endRange) return;
+          try {
+            const fullRange = document.createRange();
+            const cmp = startR.compareBoundaryPoints(Range.START_TO_START, endRange);
+            if (cmp <= 0) {
+              fullRange.setStart(startR.startContainer, startR.startOffset);
+              fullRange.setEnd(endRange.startContainer, endRange.startOffset);
+            } else {
+              fullRange.setStart(endRange.startContainer, endRange.startOffset);
+              fullRange.setEnd(startR.startContainer, startR.startOffset);
+            }
+            const text = fullRange.toString().replace(/\s+/g, ' ').trim();
+            if (text.length >= 3) {
+              pendingSelection = { text: text.slice(0, 400), bookId: currentBookId, chapterIdx: currentChapterIdx };
+              createHighlight(state.lastHighlightColor || 'yellow', '');
+            }
+          } catch (err) { /* ignore cross-node pencil drag edge cases */ }
         });
         document.querySelectorAll('[data-hl-color]').forEach(btn => {
           btn.onclick = () => createHighlight(btn.dataset.hlColor);
@@ -3109,14 +3363,22 @@
           const hl = state.highlights.find(h => h.id === editingHighlightId);
           if (hl) {
             hl.note = document.getElementById('noteModalInput').value.trim();
+            hl.updatedAt = Date.now();
+            const track = document.getElementById('colTrack');
+            if (track) track.dataset.renderedKey = '';
             saveState();
             renderReaderContent();
-            showToast('Note saved', 'success');
+            showToast('Note saved & synced', 'success');
           }
           closeModal('noteModal');
         };
         document.getElementById('deleteHighlightBtn').onclick = () => {
           state.highlights = state.highlights.filter(h => h.id !== editingHighlightId);
+          if (editingHighlightId) {
+            state.deletedHighlightIds = Array.from(new Set([...(state.deletedHighlightIds || []), editingHighlightId]));
+          }
+          const track = document.getElementById('colTrack');
+          if (track) track.dataset.renderedKey = '';
           saveState();
           renderReaderContent();
           closeModal('noteModal');
@@ -3153,9 +3415,9 @@
       renderAll();
       idbLoad().then(saved => {
         if (saved && Array.isArray(saved.books) && saved.books.length) {
-          applyParsedState(saved);
+          mergeStateSafely(saved);
           ensureDefaultBooks();
-          renderAll();
+          if (!currentBookId) renderAll();
         }
       });
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.booksBridge) {
